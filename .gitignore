@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Environment Variables (CRITICAL)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Build folders
+dist/
+build/
+.next/
+
+# OS files
+.DS_Store
+Thumbs.db

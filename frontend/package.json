@@ -1,0 +1,17 @@
+{
+  "name": "frontend-root",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "install:all": "cd customer-panel && npm install && cd ../admin-panel && npm install",
+    "customer": "cd customer-panel && npm start",
+    "admin": "cd admin-panel && npm start",
+    "start:all": "concurrently \"npm run customer\" \"npm run admin\""
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.4.23",
+    "concurrently": "^8.2.2",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.18"
+  }
+}
