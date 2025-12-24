@@ -1,10 +1,8 @@
 import axios from "axios";
 
 const api = axios.create({
-  // Use environment variable if available, otherwise default to localhost
-  baseURL: typeof process !== 'undefined' && process.env.REACT_APP_API_URL 
-    ? process.env.REACT_APP_API_URL 
-    : 'http://localhost:5001/api',
+  // Use the environment variable on Render; fallback to local for dev
+  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5001/api',
   withCredentials: true, 
 });
 
@@ -12,11 +10,9 @@ const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("token");
-
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-
     return config;
   },
   (error) => Promise.reject(error)
@@ -27,12 +23,18 @@ api.interceptors.response.use(
   (response) => response,
 
   async (error) => {
-    // Check if token expired (401 Unauthorized)
     if (error.response?.status === 401) {
-      console.warn("Token expired or invalid. Logging out...");
+      console.warn("Session expired or invalid. Logging out...");
+      
+      // 1. Clear all security/auth data
       localStorage.removeItem("token");
-      // Redirect to login
-      window.location.href = "/login";
+      localStorage.removeItem("lastActiveTime"); // Sync with your session timeout logic
+      localStorage.removeItem("rememberedAdminEmail"); // Optional: clear on forced logout
+      
+      // 2. Only redirect if we aren't already on the login page to avoid loops
+      if (!window.location.pathname.includes("/login")) {
+        window.location.href = "/login";
+      }
     }
 
     return Promise.reject(error);

@@ -5,6 +5,7 @@ import rateLimit from "express-rate-limit";
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
+import cors from "cors"; // Added for cleaner production CORS
 
 // Prisma
 import prisma from "./config/prisma.js";
@@ -22,8 +23,9 @@ import userRoutes from "./routes/user.routes.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Load environment variables
-dotenv.config({ path: path.resolve(__dirname, "../backend.env") });
+// Load environment variables 
+// (Changed to default .config() as Render injects variables directly)
+dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5001;
@@ -33,43 +35,41 @@ console.log("CLIENT_URL:", process.env.CLIENT_URL || "http://localhost:3000");
 console.log("PORT:", PORT);
 console.log("NODE_ENV:", process.env.NODE_ENV || "development");
 
-// Allowed Origins
+// ----------------------
+// CORS Configuration
+// ----------------------
 const allowedOrigins = [
-  process.env.CLIENT_URL || "http://localhost:3000",
+  process.env.ADMIN_URL,    // Add to Render Env
+  process.env.CUSTOMER_URL, // Add to Render Env
+  process.env.CLIENT_URL,
   "http://localhost:3000",
   "http://localhost:3001",
   "http://127.0.0.1:3001",
   "http://localhost:5173",
   "http://127.0.0.1:5174"
-];
-const uniqueOrigins = [...new Set(allowedOrigins.filter(Boolean))];
+].filter(Boolean); // Removes undefined values
+
+const uniqueOrigins = [...new Set(allowedOrigins)];
 console.log("✅ Allowed Origins:", uniqueOrigins);
 
-// ----------------------
-// CORS Middleware
-// ----------------------
-app.use((req, res, next) => {
-  console.log("CORS middleware hit"); // Debug log
-
-  const origin = req.headers.origin;
-  if (origin && uniqueOrigins.includes(origin)) {
-    res.setHeader("Access-Control-Allow-Origin", origin);
-  }
-
-  res.setHeader("Access-Control-Allow-Credentials", "true");
-
-  if (req.method === "OPTIONS") {
-    res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD");
-    res.setHeader(
-      "Access-Control-Allow-Headers",
-      "Origin, X-Requested-With, Content-Type, Accept, Authorization, Cookie, Set-Cookie"
-    );
-    res.setHeader("Access-Control-Max-Age", "86400");
-    return res.status(200).end();
-  }
-
-  next();
-});
+// Replaced manual header logic with standard CORS middleware 
+// but kept your specific allowed methods and headers.
+app.use(cors({
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl)
+    if (!origin) return callback(null, true);
+    if (uniqueOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.log("CORS blocked for origin:", origin);
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"],
+  allowedHeaders: ["Origin", "X-Requested-With", "Content-Type", "Accept", "Authorization", "Cookie", "Set-Cookie"],
+  maxAge: 86400
+}));
 
 // ----------------------
 // Middlewares
@@ -164,7 +164,7 @@ async function startServer() {
     console.log("✅ Database Connected");
 
     app.listen(PORT, () => {
-      console.log(`🚀 Server running at http://localhost:${PORT}`);
+      console.log(`🚀 Server running on port ${PORT}`);
     });
   } catch (error) {
     console.error("❌ Database connection failed:", error.message);

@@ -1,7 +1,11 @@
 import axios from "axios";
 
+// This checks for Vite (VITE_API_URL) or CRA (REACT_APP_API_URL)
+// If neither exists, it defaults to localhost for development
+const BASE_URL = process.env?.REACT_APP_API_URL || "http://localhost:5001/api";
+
 const api = axios.create({
-  baseURL: "http://localhost:5001/api",
+  baseURL: BASE_URL,
   withCredentials: true, 
 });
 
@@ -19,16 +23,21 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// HANDLE EXPIRED TOKEN (optional but useful)
+// HANDLE EXPIRED TOKEN
 api.interceptors.response.use(
   (response) => response,
-
   async (error) => {
-    // Check if token expired (401 Unauthorized)
     if (error.response?.status === 401) {
-      console.warn("Token expired or invalid. Logging out...");
+      console.warn("Session expired or invalid. Logging out...");
+      
+      // Clean up all auth data
       localStorage.removeItem("token");
-      window.location.href = "/login";
+      localStorage.removeItem("lastActiveTime"); // Important for your timeout logic
+      
+      // Only redirect if we aren't already on the login page
+      if (!window.location.pathname.includes("/login")) {
+        window.location.href = "/login";
+      }
     }
 
     return Promise.reject(error);
