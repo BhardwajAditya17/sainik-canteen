@@ -165,7 +165,7 @@ export async function getUserOrders(req, res, next) {
 }
 
 /***************************************
- * GET: Single Order Details (FIXED for Email)
+ * GET: Single Order Details
  ***************************************/
 export async function getOrderById(req, res, next) {
   try {
@@ -175,7 +175,6 @@ export async function getOrderById(req, res, next) {
     const order = await prisma.order.findUnique({
       where: { id },
       include: { 
-        // ✅ CRITICAL FIX: Fetch user data so frontend gets the email
         user: { 
           select: { id: true, name: true, email: true, phone: true } 
         }, 
@@ -199,25 +198,94 @@ export async function getOrderById(req, res, next) {
 }
 
 /***************************************
- * ADMIN: Get All Orders
+ * ADMIN: Get All Orders (PAGINATED & FILTERED)
  ***************************************/
 export const getAllOrders = async (req, res) => {
   try {
-    const orders = await prisma.order.findMany({
-      include: {
-        user: { select: { name: true, email: true } },
-        orderItems: { include: { product: true } }
-      },
-      orderBy: { createdAt: 'desc' }
+    const { 
+      page = 1, 
+      limit = 50, 
+      search, 
+      status, 
+      paymentStatus, 
+      timeRange 
+    } = req.query;
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const take = parseInt(limit);
+
+    // 1. Build Dynamic Where Clause
+    const where = {};
+
+    // Order Status Filter
+    if (status && status !== "All") {
+      where.status = status;
+    }
+
+    // Payment Status Filter
+    if (paymentStatus && paymentStatus !== "All") {
+      where.paymentStatus = paymentStatus;
+    }
+
+    // Advanced Search (Name, Email, or Numeric ID)
+    if (search) {
+      const isNumeric = !isNaN(search);
+      where.OR = [
+        { user: { name: { contains: search, mode: 'insensitive' } } },
+        { user: { email: { contains: search, mode: 'insensitive' } } },
+        ...(isNumeric ? [{ id: parseInt(search) }] : [])
+      ];
+    }
+
+    // Time Filter Logic
+    if (timeRange && timeRange !== "All Time") {
+      const now = new Date();
+      let startDate = new Date();
+
+      if (timeRange === "Day") {
+        startDate.setHours(0, 0, 0, 0);
+      } else if (timeRange === "Week") {
+        startDate.setDate(now.getDate() - 7);
+      } else if (timeRange === "Month") {
+        startDate.setMonth(now.getMonth() - 1);
+      } else if (timeRange === "Year") {
+        startDate.setFullYear(now.getFullYear() - 1);
+      }
+      where.createdAt = { gte: startDate };
+    }
+
+    // 2. Fetch Data & Count in Parallel
+    const [totalOrders, orders] = await Promise.all([
+      prisma.order.count({ where }),
+      prisma.order.findMany({
+        where,
+        include: {
+          user: { select: { name: true, email: true } },
+          orderItems: { include: { product: true } }
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take
+      })
+    ]);
+
+    // 3. Structured Response for Frontend "View More"
+    res.json({
+      success: true,
+      orders,
+      totalOrders,
+      currentPage: parseInt(page),
+      totalPages: Math.ceil(totalOrders / take)
     });
-    res.json(orders);
+
   } catch (error) {
+    console.error("Admin Fetch Orders Error:", error);
     res.status(500).json({ message: "Server Error" });
   }
 };
 
 /***************************************
- * ADMIN: Update Status (FIXED for UI Consistency)
+ * ADMIN: Update Status
  ***************************************/
 export const updateOrderStatus = async (req, res) => {
   try {
@@ -232,7 +300,6 @@ export const updateOrderStatus = async (req, res) => {
       where: { id: parseInt(id) },
       data: updateData,
       include: { 
-        // ✅ Ensure we return the user info so frontend doesn't lose it on update
         user: { select: { name: true, email: true } },
         orderItems: { include: { product: true } }
       }
