@@ -10,6 +10,9 @@ import Login from "./pages/Login";
 import Products from "./pages/Products"; 
 import Orders from "./pages/Orders";
 
+import OrderDetails from './pages/OrderDetails';
+
+
 // New Placeholder Pages (We will create these later)
 import Customers from "./pages/Customers";
 import Analytics from "./pages/Analytics";
@@ -63,6 +66,7 @@ function App() {
         {/* Core Modules */}
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="orders" element={<Orders />} />
+        <Route path="orders/:id" element={<OrderDetails />} />
         <Route path="products" element={<Products />} />
         
         {/* Expanded Modules (Future Proofing) */}

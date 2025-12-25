@@ -149,7 +149,7 @@ const Customers = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-            <Users className="h-7 w-7 text-emerald-600" /> Users & Customers
+            <Users className="h-7 w-7 text-emerald-600" /> Users
           </h1>
           <p className="text-sm text-slate-500 mt-1 font-medium">
             Manage system administrators, store customers, and permissions.

@@ -113,7 +113,7 @@ export default function Dashboard() {
         : (productsRes.data.products || productsRes.data.items || []);
 
       const lowStock = allProducts
-        .filter(product => product.stock < 10)
+        .filter(product => product.stock < 2)
         .slice(0, 5);
       
       setLowStockProducts(lowStock);

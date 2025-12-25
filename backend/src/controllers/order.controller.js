@@ -59,7 +59,7 @@ export async function verifyPayment(req, res, next) {
 }
 
 /***************************************
- * POST: Place Order (Main Logic Fixed)
+ * POST: Place Order
  ***************************************/
 export async function createOrder(req, res, next) {
   try {
@@ -69,12 +69,10 @@ export async function createOrder(req, res, next) {
       paymentMethod, razorpayOrderId, razorpayPaymentId, razorpaySignature 
     } = req.body;
 
-    // 1. Validation
     if (!name || !address || !city || !pincode) {
       return res.status(400).json({ message: "Shipping details are incomplete" });
     }
 
-    // 2. Fetch Cart
     const cartItems = await prisma.cartItem.findMany({
       where: { userId },
       include: { product: true }
@@ -84,41 +82,33 @@ export async function createOrder(req, res, next) {
       return res.status(400).json({ message: "Cart is empty" });
     }
 
-    // 3. Logic: Handle COD vs Online properly
     const totalAmount = cartItems.reduce((acc, item) => acc + (item.product.price * item.quantity), 0);
-    
-    // Normalize input to lowercase to catch "COD", "Cod", "cod"
     const method = paymentMethod ? paymentMethod.toLowerCase() : "cod";
     const isCOD = method === "cod";
 
-    // ✅ FORCE STATUS: "Pending" if COD, "Paid" if Online
     const finalPaymentStatus = isCOD ? "Pending" : "Paid";
-    const finalOrderStatus = "Processing"; // Default for all new orders
+    const finalOrderStatus = "Processing";
 
-    // 4. Transaction: Create Order + Reduce Stock + Clear Cart
     const order = await prisma.$transaction(async (tx) => {
-      
-      // A. Check Stock
+      // Check Stock
       for (const item of cartItems) {
         if (item.product.stock < item.quantity) {
           throw new Error(`Out of stock: ${item.product.name}`);
         }
       }
 
-      // B. Create Order
+      // Create Order
       const newOrder = await tx.order.create({
         data: {
           userId,
           totalAmount,
           status: finalOrderStatus,
-          paymentMethod: method,         // Saved as 'cod' or 'razorpay'
-          paymentStatus: finalPaymentStatus, // ✅ Correctly set to 'Pending' for COD
+          paymentMethod: method,
+          paymentStatus: finalPaymentStatus,
           razorpayOrderId: isCOD ? null : razorpayOrderId,
           razorpayPaymentId: isCOD ? null : razorpayPaymentId,
           razorpaySignature: isCOD ? null : razorpaySignature,
-          // Address fields
           name, phone, address, city, state, pincode,
-          
           orderItems: {
             create: cartItems.map(item => ({
               productId: item.productId,
@@ -130,7 +120,7 @@ export async function createOrder(req, res, next) {
         include: { orderItems: true }
       });
 
-      // C. Update Stock
+      // Update Stock
       for (const item of cartItems) {
         await tx.product.update({
           where: { id: item.productId },
@@ -138,13 +128,12 @@ export async function createOrder(req, res, next) {
         });
       }
 
-      // D. Clear Cart
+      // Clear Cart
       await tx.cartItem.deleteMany({ where: { userId } });
 
       return newOrder;
     });
 
-    // Return Consistent Structure
     res.status(201).json({ success: true, order });
 
   } catch (error) {
@@ -157,7 +146,7 @@ export async function createOrder(req, res, next) {
 }
 
 /***************************************
- * GET: User Orders
+ * GET: User Orders (For Customer Profile)
  ***************************************/
 export async function getUserOrders(req, res, next) {
   try {
@@ -170,14 +159,13 @@ export async function getUserOrders(req, res, next) {
     });
 
     res.json({ success: true, orders });
-
   } catch (error) {
     next(error);
   }
 }
 
 /***************************************
- * GET: Single Order
+ * GET: Single Order Details (FIXED for Email)
  ***************************************/
 export async function getOrderById(req, res, next) {
   try {
@@ -187,18 +175,24 @@ export async function getOrderById(req, res, next) {
     const order = await prisma.order.findUnique({
       where: { id },
       include: { 
-        orderItems: { include: { product: true } } 
+        // ✅ CRITICAL FIX: Fetch user data so frontend gets the email
+        user: { 
+          select: { id: true, name: true, email: true, phone: true } 
+        }, 
+        orderItems: { 
+          include: { product: true } 
+        } 
       }
     });
 
     if (!order) return res.status(404).json({ message: "Order not found" });
 
+    // Authorization check
     if (order.userId !== req.user.id && req.user.role !== 'admin') {
       return res.status(403).json({ message: "Access denied" });
     }
 
     res.json({ success: true, order });
-
   } catch (error) {
     next(error);
   }
@@ -223,20 +217,30 @@ export const getAllOrders = async (req, res) => {
 };
 
 /***************************************
- * ADMIN: Update Status
+ * ADMIN: Update Status (FIXED for UI Consistency)
  ***************************************/
 export const updateOrderStatus = async (req, res) => {
   try {
     const { id } = req.params;
-    const { status } = req.body;
+    const { status, paymentStatus } = req.body;
+
+    const updateData = {};
+    if (status) updateData.status = status;
+    if (paymentStatus) updateData.paymentStatus = paymentStatus;
 
     const order = await prisma.order.update({
       where: { id: parseInt(id) },
-      data: { status }
+      data: updateData,
+      include: { 
+        // ✅ Ensure we return the user info so frontend doesn't lose it on update
+        user: { select: { name: true, email: true } },
+        orderItems: { include: { product: true } }
+      }
     });
     
     res.json(order);
   } catch (error) {
+    console.error("Update Order Error:", error);
     res.status(500).json({ message: "Update failed" });
   }
 };
