@@ -308,4 +308,4 @@ export default function Orders() {
       )}
     </div>
   );
-}
+}//Pagination implemented
