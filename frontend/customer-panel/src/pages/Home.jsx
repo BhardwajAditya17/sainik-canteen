@@ -134,7 +134,7 @@ const Home = () => {
         </h2>
 
         <div className="mb-16 relative group">
-          <div className="relative h-[300px] overflow-hidden bg-white rounded-none">
+          <div className="relative h-[300px] overflow-hidden bg-white rounded-xl">
             <div
               className="flex h-full transition-transform duration-500 ease-in-out"
               style={{ transform: `translateX(-${currentSlide * 100}%)` }}
