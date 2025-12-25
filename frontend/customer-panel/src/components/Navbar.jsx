@@ -46,7 +46,7 @@ export default function Navbar() {
                 Sainik Canteen
               </span>
               <span className="block text-[10px] font-medium text-emerald-300  tracking-widest mt-1">
-                Powered by Pratul & Vaidik Enteprises
+                Powered by Pratul & Vaidik Enterprises
               </span>
             </div>
           </Link>

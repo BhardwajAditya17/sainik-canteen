@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
+import { useSearchParams } from "react-router-dom"; // 1. Import hook
 import api from "../api/axios";
 import { useCart } from "../context/CartContext";
 import ProductCard from "../components/ProductCard";
@@ -10,23 +11,19 @@ import {
   ChevronDown 
 } from "lucide-react";
 
-// The specific categories provided
 const CATEGORIES = [
-  "Electronics",
-  "Grocery",
-  "Stationery",
-  "Fashion",
-  "Home & Living",
-  "Personal Care",
-  "Toys",
-  "Health and Fitness",
-  "Sports"
+  "Electronics", "Grocery", "Stationery", "Fashion", 
+  "Home & Living", "Personal Care", "Toys", 
+  "Health and Fitness", "Sports"
 ];
 
 const Products = () => {
   const { addToCart } = useCart();
+  
+  // 2. Initialize Search Params
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlCategory = searchParams.get("category");
 
-  // State
   const [products, setProducts] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [loading, setLoading] = useState(true);
@@ -34,19 +31,25 @@ const Products = () => {
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   
-  // Pagination State
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const ITEMS_PER_PAGE = 10;
 
-  // Data Fetching Logic
+  // 3. Sync State with URL on Load or URL Change
+  useEffect(() => {
+    if (urlCategory) {
+      setSelectedCategory(urlCategory);
+    } else {
+      setSelectedCategory("All");
+    }
+  }, [urlCategory]);
+
   const fetchProducts = useCallback(async (pageNum, categoryName, isNewCategory = false) => {
     if (isNewCategory) setLoading(true);
     else setLoadingMore(true);
     
     setError(null);
     try {
-      // Constructing query: if "All" is selected, we don't send the category param
       const categoryParam = categoryName === "All" ? "" : `&category=${encodeURIComponent(categoryName)}`;
       const res = await api.get(`/products?page=${pageNum}&limit=${ITEMS_PER_PAGE}${categoryParam}`);
       
@@ -54,7 +57,6 @@ const Products = () => {
       
       if (Array.isArray(newData)) {
         setProducts(prev => isNewCategory ? newData : [...prev, ...newData]);
-        // If we received less than the limit, no more data exists on the server
         setHasMore(newData.length === ITEMS_PER_PAGE);
       }
     } catch (err) {
@@ -66,11 +68,21 @@ const Products = () => {
     }
   }, []);
 
-  // Effect: Triggered when category changes
   useEffect(() => {
     setPage(1);
     fetchProducts(1, selectedCategory, true);
   }, [selectedCategory, fetchProducts]);
+
+  // 4. Update URL when dropdown changes (optional but recommended)
+  const handleCategoryChange = (e) => {
+    const value = e.target.value;
+    setSelectedCategory(value);
+    if (value === "All") {
+      setSearchParams({}); // Clear URL params
+    } else {
+      setSearchParams({ category: value }); // Update URL params
+    }
+  };
 
   const handleLoadMore = () => {
     const nextPage = page + 1;
@@ -82,15 +94,12 @@ const Products = () => {
     addToCart({ product, quantity: 1 });
   };
 
-  // Local Search Filter
   const filteredProducts = products.filter(p =>
     p.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
-      
-      {/* MINIMAL STICKY HEADER */}
       <div className="bg-white shadow-sm border-b border-gray-100 sticky top-0 z-30">
         <div className="container mx-auto px-4 py-4">
           <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
@@ -99,7 +108,7 @@ const Products = () => {
             <div className="w-full sm:w-64">
               <select
                 value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
+                onChange={handleCategoryChange} // Updated to update URL too
                 className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-700 font-medium focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition-all cursor-pointer appearance-none"
                 style={{
                     backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e")`,
@@ -131,7 +140,6 @@ const Products = () => {
       </div>
 
       <div className="container mx-auto px-4 mt-8">
-        {/* INITIAL LOADING SKELETON */}
         {loading ? (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
             {[...Array(10)].map((_, i) => (
@@ -151,7 +159,6 @@ const Products = () => {
           </div>
         ) : (
           <>
-            {/* PRODUCT GRID */}
             {filteredProducts.length > 0 ? (
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
                 {filteredProducts.map((p) => (
@@ -165,7 +172,6 @@ const Products = () => {
               </div>
             )}
 
-            {/* LOAD MORE ACTION */}
             {hasMore && (
               <div className="mt-16 mb-12 flex justify-center">
                 <button

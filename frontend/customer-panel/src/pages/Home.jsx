@@ -1,15 +1,30 @@
 import React, { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { ArrowRight, Truck, ShieldCheck, Clock, Star, ShoppingBag, MapPin } from "lucide-react";
+import { Link } from "react-router-dom";
+import { 
+  ArrowRight, Truck, ShieldCheck, Clock, Star, 
+  ShoppingBag, MapPin, ChevronLeft, ChevronRight 
+} from "lucide-react";
 import api from "../api/axios";
 import ProductCard from "../components/ProductCard";
 import { useCart } from "../context/CartContext";
 
+const CATEGORIES = [
+  { title: "Electronics", img: "📱" },
+  { title: "Grocery", img: "🥦" },
+  { title: "Stationery", img: "✏️" },
+  { title: "Fashion", img: "👕" },
+  { title: "Home & Living", img: "🏠" },
+  { title: "Personal Care", img: "🧴" },
+  { title: "Toys", img: "🧸" },
+  { title: "Health and Fitness", img: "🧘" },
+  { title: "Sports", img: "⚽" },
+];
+
 const Home = () => {
   const [featured, setFeatured] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [currentSlide, setCurrentSlide] = useState(0);
   const { addToCart } = useCart();
-  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchFeatured = async () => {
@@ -27,6 +42,26 @@ const Home = () => {
     fetchFeatured();
   }, []);
 
+  // 🔹 AUTO SLIDE EFFECT (added)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentSlide((prev) =>
+        prev === CATEGORIES.length - 1 ? 0 : prev + 1
+      );
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Infinite Cycle Logic
+  const nextSlide = () => {
+    setCurrentSlide((prev) => (prev === CATEGORIES.length - 1 ? 0 : prev + 1));
+  };
+
+  const prevSlide = () => {
+    setCurrentSlide((prev) => (prev === 0 ? CATEGORIES.length - 1 : prev - 1));
+  };
+
   const handleAdd = (product) => {
     addToCart({ product, quantity: 1 });
     alert(`${product.name} added to cart!`);
@@ -34,32 +69,25 @@ const Home = () => {
 
   return (
     <div className="min-h-screen bg-slate-50">
-
       {/* HERO SECTION */}
       <div className="bg-gradient-to-r from-emerald-900 via-emerald-800 to-emerald-600 text-white">
         <div className="container mx-auto px-4 py-16 md:py-24">
           <div className="flex flex-col md:flex-row items-center justify-between gap-10">
-
             <div className="md:w-1/2 text-center md:text-left space-y-6">
               <div className="inline-flex items-center gap-2 px-4 py-1 rounded-full bg-emerald-500/20 text-emerald-100 text-sm font-semibold tracking-wide border border-emerald-400/30">
                 <MapPin size={20} />
                 <span>Baghpat</span>
               </div>
-
-
               <h1 className="text-4xl md:text-6xl font-bold leading-tight">
                 Quality Products
               </h1>
-
               <h2 className="text-xl md:text-2xl font-semibold text-emerald-300">
                 Shop with comfort
               </h2>
-
               <p className="text-emerald-100 text-lg md:text-xl max-w-lg mx-auto md:mx-0">
                 Exclusive deals on groceries, electronics, and daily essentials.
                 Served with pride and integrity.
               </p>
-
               <div className="flex flex-col sm:flex-row gap-4 pt-4 justify-center md:justify-start">
                 <Link
                   to="/products"
@@ -67,7 +95,6 @@ const Home = () => {
                 >
                   Shop Now <ShoppingBag size={20} />
                 </Link>
-
                 <Link
                   to="/orders"
                   className="px-8 py-4 bg-transparent border-2 border-white text-white rounded-xl font-bold text-lg hover:bg-white/10 transition-all"
@@ -76,8 +103,6 @@ const Home = () => {
                 </Link>
               </div>
             </div>
-
-            {/* Hero Image */}
             <div className="md:w-1/2 flex justify-center">
               <div className="relative">
                 <div className="absolute inset-0 bg-emerald-400 rounded-full blur-3xl opacity-20 animate-pulse"></div>
@@ -88,14 +113,13 @@ const Home = () => {
                 />
               </div>
             </div>
-
           </div>
         </div>
       </div>
 
       {/* FEATURES */}
       <div className="container mx-auto px-4 -mt-8 relative z-20">
-        <div className="bg-white rounded-2xl shadow-xl grid grid-cols-2 md:grid-cols-4">
+        <div className="bg-white rounded-2xl shadow-xl grid grid-cols-2 md:grid-cols-4 overflow-hidden">
           <FeatureCard icon={<Truck className="text-emerald-600" size={32} />} title="Fast Delivery" desc="To your doorstep" />
           <FeatureCard icon={<ShieldCheck className="text-emerald-600" size={32} />} title="Secure Payment" desc="100% Safe" />
           <FeatureCard icon={<Star className="text-emerald-600" size={32} />} title="Best Quality" desc="Original Products" />
@@ -104,17 +128,59 @@ const Home = () => {
       </div>
 
       <div className="container mx-auto px-4 py-16">
+        {/* SHOP BY CATEGORY CAROUSEL */}
+        <h2 className="text-3xl font-bold text-slate-900 mb-8">
+          Shop by category
+        </h2>
 
-        {/* CATEGORIES */}
-        <div className="mb-16">
-          <h2 className="text-2xl font-bold text-slate-800 mb-8 text-center">
-            Shop by Category
-          </h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <CategoryCard title="Groceries" img="🥦" to="/products/groceries" />
-            <CategoryCard title="Electronics" img="📱" to="/products/electronics" />
-            <CategoryCard title="Fashion" img="👕" to="/products/fashion" />
-            <CategoryCard title="Home" img="🏠" to="/products/home" />
+        <div className="mb-16 relative group">
+          <div className="relative h-[300px] overflow-hidden bg-white rounded-none">
+            <div
+              className="flex h-full transition-transform duration-500 ease-in-out"
+              style={{ transform: `translateX(-${currentSlide * 100}%)` }}
+            >
+              {CATEGORIES.map((cat, index) => (
+                <div key={index} className="min-w-full h-full flex items-center justify-center">
+                  <Link
+                    to={`/products?category=${encodeURIComponent(cat.title)}`}
+                    className="flex flex-col items-center justify-center space-y-4"
+                  >
+                    <span className="text-8xl">{cat.img}</span>
+                    <span className="text-2xl font-black uppercase tracking-tighter">
+                      {cat.title}
+                    </span>
+                  </Link>
+                </div>
+              ))}
+            </div>
+
+            <button
+              onClick={prevSlide}
+              className="absolute left-0 top-0 bottom-0 px-6 bg-transparent text-gray-300 hover:text-emerald-700 transition-colors z-10"
+            >
+              <ChevronLeft size={48} strokeWidth={3} />
+            </button>
+
+            <button
+              onClick={nextSlide}
+              className="absolute right-0 top-0 bottom-0 px-6 bg-transparent text-gray-300 hover:text-emerald-700 transition-colors z-10"
+            >
+              <ChevronRight size={48} strokeWidth={3} />
+            </button>
+          </div>
+
+          <div className="flex justify-center gap-4 mt-6">
+            {CATEGORIES.map((_, index) => (
+              <button
+                key={index}
+                onClick={() => setCurrentSlide(index)}
+                className={`w-3 h-3 rounded-full transition-all ${
+                  index === currentSlide
+                    ? "bg-emerald-700 scale-125"
+                    : "bg-slate-300"
+                }`}
+              />
+            ))}
           </div>
         </div>
 
@@ -122,10 +188,17 @@ const Home = () => {
         <section>
           <div className="flex justify-between items-end mb-8">
             <div>
-              <h2 className="text-3xl font-bold text-slate-900">Featured Products</h2>
-              <p className="text-slate-500 mt-1">Handpicked items just for you</p>
+              <h2 className="text-3xl font-bold text-slate-900">
+                Featured Products
+              </h2>
+              <p className="text-slate-500 mt-1">
+                Handpicked items just for you
+              </p>
             </div>
-            <Link to="/products" className="hidden md:flex items-center text-emerald-600 font-semibold hover:text-emerald-700">
+            <Link
+              to="/products"
+              className="hidden md:flex items-center text-emerald-600 font-semibold hover:text-emerald-700"
+            >
               View All <ArrowRight size={20} className="ml-1" />
             </Link>
           </div>
@@ -153,12 +226,6 @@ const Home = () => {
               )}
             </div>
           )}
-
-          <div className="mt-8 md:hidden text-center">
-            <Link to="/products" className="inline-block w-full py-3 bg-white border border-slate-300 text-slate-700 rounded-xl font-semibold hover:bg-slate-50">
-              View All Products
-            </Link>
-          </div>
         </section>
       </div>
     </div>
@@ -171,18 +238,6 @@ const FeatureCard = ({ icon, title, desc }) => (
     <h3 className="font-bold text-slate-900">{title}</h3>
     <p className="text-sm text-slate-500">{desc}</p>
   </div>
-);
-
-const CategoryCard = ({ title, img, to }) => (
-  <Link
-    to={to}
-    className="group bg-white p-6 rounded-2xl shadow-sm border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all text-center"
-  >
-    <div className="text-4xl mb-3 group-hover:scale-110 transition-transform duration-300 inline-block">
-      {img}
-    </div>
-    <h3 className="font-semibold text-slate-800">{title}</h3>
-  </Link>
 );
 
 export default Home;
