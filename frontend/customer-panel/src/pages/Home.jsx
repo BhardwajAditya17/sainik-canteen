@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowRight, Truck, ShieldCheck, Clock, Star, ShoppingBag } from "lucide-react";
+import { ArrowRight, Truck, ShieldCheck, Clock, Star, ShoppingBag, MapPin } from "lucide-react";
 import api from "../api/axios";
 import ProductCard from "../components/ProductCard";
 import { useCart } from "../context/CartContext";
 
 const Home = () => {
-  const [featured, setFeatured] = useState([]); 
+  const [featured, setFeatured] = useState([]);
   const [loading, setLoading] = useState(true);
   const { addToCart } = useCart();
   const navigate = useNavigate();
@@ -41,16 +41,18 @@ const Home = () => {
           <div className="flex flex-col md:flex-row items-center justify-between gap-10">
 
             <div className="md:w-1/2 text-center md:text-left space-y-6">
-              <span className="inline-block px-4 py-1 rounded-full bg-emerald-500/20 text-emerald-100 text-sm font-semibold tracking-wide border border-emerald-400/30">
-                Official Canteen Service
-              </span>
+              <div className="inline-flex items-center gap-2 px-4 py-1 rounded-full bg-emerald-500/20 text-emerald-100 text-sm font-semibold tracking-wide border border-emerald-400/30">
+                <MapPin size={20} />
+                <span>Baghpat</span>
+              </div>
+
 
               <h1 className="text-4xl md:text-6xl font-bold leading-tight">
                 Quality Products
               </h1>
 
               <h2 className="text-xl md:text-2xl font-semibold text-emerald-300">
-                CSD Price Available
+                Shop with comfort
               </h2>
 
               <p className="text-emerald-100 text-lg md:text-xl max-w-lg mx-auto md:mx-0">
@@ -59,15 +61,15 @@ const Home = () => {
               </p>
 
               <div className="flex flex-col sm:flex-row gap-4 pt-4 justify-center md:justify-start">
-                <Link 
-                  to="/products" 
+                <Link
+                  to="/products"
                   className="px-8 py-4 bg-white text-emerald-800 rounded-xl font-bold text-lg hover:bg-emerald-50 hover:shadow-lg transition-all flex items-center justify-center gap-2"
                 >
                   Shop Now <ShoppingBag size={20} />
                 </Link>
 
-                <Link 
-                  to="/orders" 
+                <Link
+                  to="/orders"
                   className="px-8 py-4 bg-transparent border-2 border-white text-white rounded-xl font-bold text-lg hover:bg-white/10 transition-all"
                 >
                   Track Order
@@ -79,12 +81,12 @@ const Home = () => {
             <div className="md:w-1/2 flex justify-center">
               <div className="relative">
                 <div className="absolute inset-0 bg-emerald-400 rounded-full blur-3xl opacity-20 animate-pulse"></div>
-                  <img 
-                    src="/SKLogo.png" 
-                    alt="Shopping" 
-                    className="relative z-10 w-72 md:w-96 drop-shadow-2xl" 
-                  />
-                </div>
+                <img
+                  src="/SKLogo.png"
+                  alt="Shopping"
+                  className="relative z-10 w-72 md:w-96 drop-shadow-2xl"
+                />
+              </div>
             </div>
 
           </div>
@@ -138,10 +140,10 @@ const Home = () => {
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-8">
               {featured.length > 0 ? (
                 featured.map((p) => (
-                  <ProductCard 
-                    key={p.id} 
-                    product={p} 
-                    onAdd={() => handleAdd(p)} 
+                  <ProductCard
+                    key={p.id}
+                    product={p}
+                    onAdd={() => handleAdd(p)}
                   />
                 ))
               ) : (

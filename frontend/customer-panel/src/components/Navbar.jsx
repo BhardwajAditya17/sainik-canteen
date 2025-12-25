@@ -41,9 +41,14 @@ export default function Navbar() {
                 className="h-9 w-9 object-contain"
               />
             </div>
-            <span className="leading-tight text-emerald-100">
-              Sainik Canteen
-            </span>
+            <div className="leading-tight">
+              <span className="block font-bold text-white tracking-tight">
+                Sainik Canteen
+              </span>
+              <span className="block text-[10px] font-medium text-emerald-300  tracking-widest mt-1">
+                Powered by Pratul & Vaidik Enteprises
+              </span>
+            </div>
           </Link>
 
           {/* DESKTOP MENU */}
@@ -105,9 +110,8 @@ export default function Navbar() {
 
       {/* MOBILE DROPDOWN */}
       <div
-        className={`md:hidden transition-all duration-300 ease-in-out overflow-hidden ${
-          isOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
-        }`}
+        className={`md:hidden transition-all duration-300 ease-in-out overflow-hidden ${isOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
+          }`}
       >
         <div className="px-4 pt-2 pb-4 space-y-2 bg-emerald-900 border-t border-emerald-800 shadow-inner">
           <MobileNavLink to="/" label="Home" onClick={() => setIsOpen(false)} />
