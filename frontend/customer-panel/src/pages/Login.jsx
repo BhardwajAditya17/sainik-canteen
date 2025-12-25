@@ -1,16 +1,19 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate, Link } from "react-router-dom";
-import { Mail, Lock, AlertCircle } from "lucide-react";
+// 1. Added Eye and EyeOff imports here
+import { Mail, Lock, AlertCircle, Eye, EyeOff } from "lucide-react";
 
 const Login = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
 
   const [form, setForm] = useState({ email: "", password: "" });
-  const [rememberMe, setRememberMe] = useState(false); // New state for checkbox
+  const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  // 2. Added state for password visibility toggle
+  const [showPassword, setShowPassword] = useState(false);
 
   // 1. Remember Me: Load saved email on component mount
   useEffect(() => {
@@ -90,20 +93,34 @@ const Login = () => {
               />
             </div>
 
-            {/* Password */}
+            {/* Password Field Updated */}
             <div className="relative">
+              {/* Left Lock Icon */}
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <Lock className="h-5 w-5 text-gray-400" />
               </div>
+
+              {/* Input */}
               <input
                 name="password"
-                type="password"
+                // 3. Dynamic type based on state
+                type={showPassword ? "text" : "password"}
                 required
                 value={form.password}
                 onChange={onChange}
-                className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-600 transition sm:text-sm"
+                // 4. Added pr-10 for right padding so text doesn't overlap icon
+                className="block w-full pl-10 pr-10 py-3 border border-gray-300 rounded-xl placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-600 transition sm:text-sm"
                 placeholder="Password"
               />
+
+              {/* 5. Right Eye Toggle Button */}
+              <button
+                type="button" // Important: prevent form submission
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-500 focus:outline-none"
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
             </div>
           </div>
 
