@@ -1,25 +1,26 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate, Link } from "react-router-dom";
-// 1. Added Eye and EyeOff imports here
-import { Mail, Lock, AlertCircle, Eye, EyeOff } from "lucide-react";
+// Changed Mail to User for a more generic "Identifier" feel
+import { User, Lock, AlertCircle, Eye, EyeOff } from "lucide-react";
 
 const Login = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  const [form, setForm] = useState({ email: "", password: "" });
+  // Renamed 'email' to 'identifier' to better represent Email or Phone
+  const [form, setForm] = useState({ identifier: "", password: "" });
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  // 2. Added state for password visibility toggle
   const [showPassword, setShowPassword] = useState(false);
 
-  // 1. Remember Me: Load saved email on component mount
+  // 1. Remember Me: Load saved identifier on mount
   useEffect(() => {
-    const savedEmail = localStorage.getItem("rememberedCustomerEmail");
-    if (savedEmail) {
-      setForm((prev) => ({ ...prev, email: savedEmail }));
+    // Kept the same key name to avoid breaking existing users' saved data
+    const savedIdentifier = localStorage.getItem("rememberedCustomerEmail");
+    if (savedIdentifier) {
+      setForm((prev) => ({ ...prev, identifier: savedIdentifier }));
       setRememberMe(true);
     }
   }, []);
@@ -33,22 +34,23 @@ const Login = () => {
     setLoading(true);
 
     try {
-      await login(form.email, form.password);
+      // Passes the identifier (email or phone) to your existing login function
+      await login(form.identifier, form.password);
 
-      // 2. Remember Me Logic: Save or Remove email
+      // 2. Remember Me Logic: Persists the identifier
       if (rememberMe) {
-        localStorage.setItem("rememberedCustomerEmail", form.email);
+        localStorage.setItem("rememberedCustomerEmail", form.identifier);
       } else {
         localStorage.removeItem("rememberedCustomerEmail");
       }
 
-      // 3. Session Timeout Anchor: Mark the start of the session
+      // 3. Session Timeout Anchor: Remains intact
       localStorage.setItem("lastActiveTime", Date.now().toString());
 
       navigate("/");
     } catch (err) {
       console.error("Login Error:", err);
-      setError(err.response?.data?.error || "Invalid email or password.");
+      setError(err.response?.data?.error || "Invalid credentials.");
     } finally {
       setLoading(false);
     }
@@ -77,45 +79,42 @@ const Login = () => {
         {/* Form */}
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="space-y-4">
-            {/* Email */}
+            {/* Email or Phone Number Field */}
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Mail className="h-5 w-5 text-gray-400" />
+                {/* User icon is more appropriate for a multi-use field */}
+                <User className="h-5 w-5 text-gray-400" />
               </div>
               <input
-                name="email"
-                type="email"
+                name="identifier"
+                // Changed from "email" to "text" to allow digits
+                type="text"
                 required
-                value={form.email}
+                value={form.identifier}
                 onChange={onChange}
                 className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-600 transition sm:text-sm"
-                placeholder="Email address"
+                placeholder="Email or Phone Number"
               />
             </div>
 
-            {/* Password Field Updated */}
+            {/* Password Field */}
             <div className="relative">
-              {/* Left Lock Icon */}
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <Lock className="h-5 w-5 text-gray-400" />
               </div>
 
-              {/* Input */}
               <input
                 name="password"
-                // 3. Dynamic type based on state
                 type={showPassword ? "text" : "password"}
                 required
                 value={form.password}
                 onChange={onChange}
-                // 4. Added pr-10 for right padding so text doesn't overlap icon
                 className="block w-full pl-10 pr-10 py-3 border border-gray-300 rounded-xl placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-600 transition sm:text-sm"
                 placeholder="Password"
               />
 
-              {/* 5. Right Eye Toggle Button */}
               <button
-                type="button" // Important: prevent form submission
+                type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-500 focus:outline-none"
               >

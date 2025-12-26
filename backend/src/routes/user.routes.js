@@ -1,11 +1,23 @@
 import express from "express";
-import { getAllUsers, createUser, deleteUser } from "../controllers/user.controller.js";
-// import { protect, admin } from "../middleware/authMiddleware.js"; // Import if you have auth middleware
+import { 
+  getAllUsers, 
+  getUserById, // ✅ Added this import
+  createUser, 
+  deleteUser 
+} from "../controllers/user.controller.js";
 
 const router = express.Router();
 
-router.get("/", getAllUsers);       // Matches GET /api/users
+// Get list of all users
+router.get("/", getAllUsers);       
+
+// ✅ Get details for a specific user (Matches GET /api/users/:id)
+router.get("/:id", getUserById);    
+
+// Create a new user
 router.post("/", createUser);
-router.delete("/:id", deleteUser);  // Matches DELETE /api/users/:id
+
+// Delete a user
+router.delete("/:id", deleteUser);  
 
 export default router;

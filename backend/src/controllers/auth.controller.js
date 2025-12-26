@@ -9,34 +9,50 @@ export async function register(req, res, next) {
   try {
     const { name, email, password, phone, address, city, state, pincode } = req.body;
 
-    if (!name || !email || !password) {
-      return res.status(400).json({ error: "Missing required fields" });
+    // 1. Updated validation: Check for phone instead of email
+    if (!name || !phone || !password) {
+      return res.status(400).json({ error: "Name, Phone, and Password are required." });
     }
 
-    const existing = await prisma.user.findUnique({ where: { email } });
-    if (existing) {
-      return res.status(400).json({ error: "Email already registered" });
+    // 2. Check if Phone already exists (Compulsory check)
+    const phoneExists = await prisma.user.findUnique({ where: { phone } });
+    if (phoneExists) {
+      return res.status(400).json({ error: "This phone number is already registered." });
+    }
+
+    // 3. Check if Email already exists (Only if email was provided)
+    if (email) {
+      const emailExists = await prisma.user.findUnique({ where: { email } });
+      if (emailExists) {
+        return res.status(400).json({ error: "This email is already registered." });
+      }
     }
 
     const hashed = await bcrypt.hash(password, SALT_ROUNDS);
 
     const user = await prisma.user.create({
-      data: { name, email, password: hashed, phone, address, city, state, pincode }
+      data: { 
+        name, 
+        email: email || null, // Ensure empty string becomes null
+        password: hashed, 
+        phone, 
+        address, 
+        city, 
+        state, 
+        pincode 
+      }
     });
 
     const token = signToken({ id: user.id, email: user.email });
-
     delete user.password;
 
-    // Set Cookie (Optional, good for redundancy)
     res.cookie("token", token, {
       httpOnly: true,
-      secure: false,
+      secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
-    // ✅ FIX: Send 'token' in the JSON body so Frontend can save to localStorage
     return res.status(201).json({ success: true, user, token }); 
   } catch (err) {
     next(err);
@@ -45,17 +61,25 @@ export async function register(req, res, next) {
 
 export async function login(req, res, next) {
   try {
-    const { email, password } = req.body;
+    // identifier can be either email or phone
+    const { identifier, password } = req.body; 
 
-    if (!email || !password) {
+    if (!identifier || !password) {
       return res.status(400).json({ error: "Missing fields" });
     }
 
-    const user = await prisma.user.findUnique({ where: { email } });
+    // Search for a user where EITHER email OR phone matches the identifier
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { email: identifier },
+          { phone: identifier }
+        ]
+      }
+    });
     
-    // If user not found, return 400 (This is your current error!)
     if (!user) {
-      return res.status(400).json({ error: "User not found. Please Register first." });
+      return res.status(400).json({ error: "User not found. Please register first." });
     }
 
     const ok = await bcrypt.compare(password, user.password);
@@ -65,17 +89,17 @@ export async function login(req, res, next) {
 
     const token = signToken({ id: user.id, email: user.email });
 
-    delete user.password;
+    // Remove password from object before sending to frontend
+    const { password: _, ...userWithoutPassword } = user;
 
     res.cookie("token", token, {
       httpOnly: true,
-      secure: false,
+      secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       maxAge: 7 * 24 * 60 * 60 * 1000
     });
 
-    // ✅ FIX: Send 'token' in the JSON body here too
-    return res.json({ success: true, user, token });
+    return res.json({ success: true, user: userWithoutPassword, token });
   } catch (err) {
     next(err);
   }

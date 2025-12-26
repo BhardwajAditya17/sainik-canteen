@@ -1,13 +1,52 @@
 import prisma from "../config/prisma.js";
 import bcrypt from "bcryptjs";
 
-// @desc    Get ALL users (Admins & Customers)
+// @desc    Get Single User Details (Including Orders)
+export const getUserById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // 💡 CRITICAL: Convert string ID to Integer
+    const userId = parseInt(id);
+    if (isNaN(userId)) {
+      return res.status(400).json({ success: false, message: "Invalid ID format" });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        // If you have an 'orders' relation in schema.prisma, this brings history
+        orders: {
+          orderBy: { createdAt: 'desc' }
+        }
+      }
+    });
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    // Remove sensitive data before sending to frontend
+    const { password, ...userData } = user;
+    res.status(200).json({ success: true, user: userData });
+  } catch (error) {
+    console.error("Fetch User Error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Get ALL users (Directory view)
 export const getAllUsers = async (req, res) => {
   try {
     const users = await prisma.user.findMany({
-      // REMOVED the 'where' filter so we get everyone
       select: {
-        id: true, name: true, email: true, role: true, createdAt: true
+        id: true, 
+        name: true, 
+        email: true, 
+        phone: true, 
+        city: true,
+        role: true, 
+        createdAt: true
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -18,16 +57,17 @@ export const getAllUsers = async (req, res) => {
   }
 };
 
-// @desc    Create a new user manually
+// @desc    Create a new user (Handles the full address profile)
 export const createUser = async (req, res) => {
   try {
-    const { name, email, password, role } = req.body;
+    const { 
+      name, email, phone, password, role, 
+      address, city, state, pincode 
+    } = req.body;
 
-    // Check if user exists
     const userExists = await prisma.user.findUnique({ where: { email } });
     if (userExists) return res.status(400).json({ message: "User already exists" });
 
-    // Hash password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
@@ -35,46 +75,38 @@ export const createUser = async (req, res) => {
       data: {
         name, 
         email, 
+        phone,
         password: hashedPassword, 
-        role: role || "customer"
+        role: role || "customer",
+        address,
+        city,
+        state,
+        pincode
       }
     });
 
-    res.status(201).json({ success: true, user: newUser });
+    // Don't send password back
+    const { password: _, ...userWithoutPassword } = newUser;
+    res.status(201).json({ success: true, user: userWithoutPassword });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+// @desc    Delete user
 export const deleteUser = async (req, res) => {
-  const { id } = req.params;
-
   try {
-    // Check if user exists first
-    const existingUser = await prisma.user.findUnique({
-      where: { id: id }, // Ensure your ID type matches (int vs string/uuid)
-    });
+    const { id } = req.params;
+    const userId = parseInt(id);
 
+    const existingUser = await prisma.user.findUnique({ where: { id: userId } });
     if (!existingUser) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
+      return res.status(404).json({ success: false, message: "User not found" });
     }
 
-    // Delete the user
-    await prisma.user.delete({
-      where: { id: id },
-    });
-
-    res.status(200).json({
-      success: true,
-      message: "User removed successfully",
-    });
+    await prisma.user.delete({ where: { id: userId } });
+    res.status(200).json({ success: true, message: "User removed successfully" });
   } catch (error) {
-    console.error(`Error deleting user ${id}:`, error);
-    res.status(500).json({
-      success: false,
-      message: "Server Error: Unable to delete user.",
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };

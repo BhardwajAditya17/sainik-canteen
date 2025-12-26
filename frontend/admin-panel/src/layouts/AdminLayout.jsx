@@ -36,7 +36,7 @@ export default function AdminLayout() {
         { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
         { path: "/orders", label: "Orders", icon: ShoppingBag },
         { path: "/products", label: "Products", icon: Package },
-        { path: "/customers", label: "Users", icon: Users },
+        { path: "/users", label: "Users", icon: Users },
         { path: "/analytics", label: "Analytics", icon: BarChart3 },
     ];
 

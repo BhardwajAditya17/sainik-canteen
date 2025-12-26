@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
-import { Mail, Lock, Eye, EyeOff, Loader2 } from "lucide-react";
+// Changed Mail icon to User icon to represent Email/Phone more broadly
+import { User, Lock, Eye, EyeOff, Loader2 } from "lucide-react";
 
 export default function Login() {
-    const [email, setEmail] = useState("");
+    // 1. Changed 'email' to 'identifier' to match updated AuthContext and Backend
+    const [identifier, setIdentifier] = useState("");
     const [password, setPassword] = useState("");
     const [rememberMe, setRememberMe] = useState(false);
     const [error, setError] = useState("");
@@ -14,11 +16,10 @@ export default function Login() {
     const { login } = useAuth();
     const navigate = useNavigate();
 
-    // 1. Remember Me: Load saved email on component mount
     useEffect(() => {
-        const savedEmail = localStorage.getItem("rememberedAdminEmail");
-        if (savedEmail) {
-            setEmail(savedEmail);
+        const savedIdentifier = localStorage.getItem("rememberedAdminIdentifier");
+        if (savedIdentifier) {
+            setIdentifier(savedIdentifier);
             setRememberMe(true);
         }
     }, []);
@@ -29,22 +30,22 @@ export default function Login() {
         setLoading(true);
 
         try {
-            await login(email, password);
+            // 2. Pass 'identifier' instead of 'email' to match backend { identifier, password }
+            await login(identifier, password);
 
-            // 2. Remember Me Logic: Save or Remove email (NOT password)
             if (rememberMe) {
-                localStorage.setItem("rememberedAdminEmail", email);
+                localStorage.setItem("rememberedAdminIdentifier", identifier);
             } else {
-                localStorage.removeItem("rememberedAdminEmail");
+                localStorage.removeItem("rememberedAdminIdentifier");
             }
 
-            // 3. Session Timeout Anchor: Mark the login time
-            // This allows the app to know when the session started
+            // Session Timeout Anchor
             localStorage.setItem("lastActiveTime", Date.now().toString());
 
             navigate("/dashboard");
         } catch (err) {
-            setError("Invalid admin credentials. Please try again.");
+            // Updated error message to be more inclusive
+            setError(err.response?.data?.error || "Invalid credentials. Please try again.");
         } finally {
             setLoading(false);
         }
@@ -52,14 +53,12 @@ export default function Login() {
 
     return (
         <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 relative overflow-hidden font-sans">
-            {/* Decorative blobs */}
             <div className="absolute inset-0 z-0 overflow-hidden">
                 <div className="absolute top-[-10%] right-[-5%] w-72 h-72 bg-emerald-200 rounded-full blur-2xl opacity-30" />
                 <div className="absolute bottom-[-10%] left-[-5%] w-72 h-72 bg-emerald-300 rounded-full blur-2xl opacity-30" />
             </div>
 
             <div className="w-full max-w-md relative z-10">
-                {/* Header */}
                 <div className="text-center mb-6">
                     <div className="mx-auto h-20 w-20 rounded-xl flex items-center justify-center mb-4">
                         <img src="/SKLogo.png" alt="Sainik Canteen Logo" className="h-20 w-20 object-contain" />
@@ -68,7 +67,6 @@ export default function Login() {
                     <p className="text-sm text-gray-600 mt-1">Sign in to manage your store</p>
                 </div>
 
-                {/* Card */}
                 <div className="bg-white p-8 rounded-2xl shadow-2xl border border-gray-100">
                     <form onSubmit={handleSubmit} className="space-y-6">
                         {error && (
@@ -77,17 +75,17 @@ export default function Login() {
                             </div>
                         )}
 
-                        {/* Email */}
+                        {/* Identifier (Email or Phone) */}
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Email or Phone Number</label>
                             <div className="relative">
-                                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
                                 <input
-                                    type="email"
+                                    type="text" // Changed to text to allow phone number digits
                                     required
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    placeholder="admin@example.com"
+                                    value={identifier}
+                                    onChange={(e) => setIdentifier(e.target.value)}
+                                    placeholder="Enter email or phone"
                                     className="w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all text-sm"
                                 />
                             </div>
@@ -116,7 +114,6 @@ export default function Login() {
                             </div>
                         </div>
 
-                        {/* Remember Me & Forgot Password */}
                         <div className="flex items-center justify-between">
                             <label className="flex items-center gap-2 cursor-pointer group">
                                 <input
@@ -134,15 +131,14 @@ export default function Login() {
                             </button>
                         </div>
 
-                        {/* Submit */}
                         <button
                             type="submit"
                             disabled={loading}
-                            className="w-full flex justify-center items-center gap-2 py-3 rounded-lg text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 disabled:opacity-70 transition-all"
+                            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-lg shadow-md transition-all active:scale-[0.98] flex items-center justify-center disabled:opacity-70"
                         >
                             {loading ? (
                                 <>
-                                    <Loader2 className="animate-spin h-5 w-5" />
+                                    <Loader2 className="animate-spin -ml-1 mr-2 h-5 w-5" />
                                     Signing in...
                                 </>
                             ) : (
