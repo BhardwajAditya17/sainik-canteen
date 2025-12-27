@@ -2,7 +2,7 @@ import React, { useEffect, useState, useContext } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../api/axios";
 import { CartContext } from "../context/CartContext";
-import { ArrowLeft, ShoppingCart, Star, Share2 } from "lucide-react";
+import { ArrowLeft, ShoppingCart, Star, Share2, Plus, Minus } from "lucide-react";
 
 const ProductDetails = () => {
   const { id } = useParams();
@@ -12,6 +12,8 @@ const ProductDetails = () => {
   const [product, setProduct] = useState(null);
   const [adding, setAdding] = useState(false);
   const [loading, setLoading] = useState(true);
+  // Added Quantity State
+  const [quantity, setQuantity] = useState(1);
 
   useEffect(() => {
     api.get(`/products/${id}`)
@@ -28,7 +30,8 @@ const ProductDetails = () => {
   const handleAddToCart = async () => {
     setAdding(true);
     try {
-      await addToCart(product.id);
+      // Pass both product ID and selected quantity
+      await addToCart(product.id, quantity);
       alert("Added to cart!");
     } catch (error) {
       alert("Failed to add item.");
@@ -100,16 +103,6 @@ const ProductDetails = () => {
                 {product.name}
               </h1>
 
-              {/* Rating
-              <div className="flex items-center mb-4">
-                <div className="flex text-yellow-400">
-                  {[...Array(5)].map((_, i) => (
-                    <Star key={i} size={18} fill="currentColor" />
-                  ))}
-                </div>
-                <span className="text-gray-500 text-sm ml-2">(4.8 Reviews)</span>
-              </div> */}
-
               {/* Price */}
               <p className="text-3xl font-bold text-emerald-600 mb-6">
                 ₹{product.price}
@@ -121,11 +114,45 @@ const ProductDetails = () => {
               </p>
 
               {/* Stock */}
-              <div className="mb-8">
+              <div className="mb-6">
                 <span className={`text-sm font-medium ${product.stock > 0 ? "text-emerald-600" : "text-red-500"}`}>
                   {product.stock > 0 ? `In Stock (${product.stock} available)` : "Currently Out of Stock"}
                 </span>
               </div>
+
+              {/* QUANTITY SELECTOR */}
+              {product.stock > 0 && (
+                <div className="mb-8">
+                  <label className="block text-sm font-bold text-gray-700 uppercase tracking-wide mb-3">
+                    Select Quantity
+                  </label>
+                  <div className="flex items-center w-32 border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                    <button 
+                      onClick={() => setQuantity(prev => Math.max(1, prev - 1))}
+                      className="p-3 bg-gray-50 hover:bg-gray-100 text-gray-600 transition-colors border-r"
+                    >
+                      <Minus size={16} />
+                    </button>
+                    <input 
+                      type="number"
+                      min="1"
+                      max={product.stock}
+                      value={quantity}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value);
+                        if (!isNaN(val)) setQuantity(Math.min(product.stock, Math.max(1, val)));
+                      }}
+                      className="w-full text-center font-bold text-gray-800 bg-white outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    />
+                    <button 
+                      onClick={() => setQuantity(prev => Math.min(product.stock, prev + 1))}
+                      className="p-3 bg-gray-50 hover:bg-gray-100 text-gray-600 transition-colors border-l"
+                    >
+                      <Plus size={16} />
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Add to Cart Button */}
               <button 
