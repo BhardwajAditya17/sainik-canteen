@@ -1,9 +1,10 @@
 import express from "express";
 import { 
   getAllUsers, 
-  getUserById, // ✅ Added this import
+  getUserById,
   createUser, 
-  deleteUser 
+  deleteUser,
+  updateUser
 } from "../controllers/user.controller.js";
 
 const router = express.Router();
@@ -11,11 +12,14 @@ const router = express.Router();
 // Get list of all users
 router.get("/", getAllUsers);       
 
-// ✅ Get details for a specific user (Matches GET /api/users/:id)
+// Get details for a specific user (Matches GET /api/users/:id)
 router.get("/:id", getUserById);    
 
 // Create a new user
 router.post("/", createUser);
+
+// Edit profile
+router.put("/:id", updateUser);
 
 // Delete a user
 router.delete("/:id", deleteUser);  

@@ -112,18 +112,18 @@ export default function Orders() {
           Orders Management
         </h1>
         <div className="flex items-center gap-2">
-            <button 
-                onClick={() => {
-                    sessionStorage.clear();
-                    window.location.reload();
-                }}
-                className="text-[10px] font-black text-slate-400 uppercase hover:text-red-500 transition-colors"
-            >
-                Clear Filters
-            </button>
-            <div className="bg-white border border-slate-200 px-5 py-2.5 rounded-2xl shadow-sm text-xs font-black text-slate-400 uppercase tracking-widest">
+          <button
+            onClick={() => {
+              sessionStorage.clear();
+              window.location.reload();
+            }}
+            className="text-[10px] font-black text-slate-400 uppercase hover:text-red-500 transition-colors"
+          >
+            Clear Filters
+          </button>
+          <div className="bg-white border border-slate-200 px-5 py-2.5 rounded-2xl shadow-sm text-xs font-black text-slate-400 uppercase tracking-widest">
             Found: <span className="text-emerald-600 ml-1">{totalResults} Orders</span>
-            </div>
+          </div>
         </div>
       </div>
 
@@ -269,43 +269,65 @@ export default function Orders() {
             </table>
           </div>
 
-          {/* Mobile View - reusing same logic */}
-          <div className="md:hidden space-y-5">
+          {/* Mobile View */}
+          <div className="md:hidden space-y-4">
             {orders.map(o => (
-                <div key={o.id || o._id} className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm space-y-5">
-                    <div className="flex justify-between items-center">
-                    <span className="font-mono text-[10px] font-black text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-xl">
-                        #{(o.id || o._id).toString().slice(-6).toUpperCase()}
-                    </span>
-                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-                        {new Date(o.createdAt).toLocaleDateString()}
+              <div key={o.id || o._id} className="bg-white p-5 rounded-[2rem] border border-slate-200 shadow-sm space-y-4">
+                {/* Top Row: ID and Date */}
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="font-mono text-[10px] font-black text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-lg inline-block uppercase">
+                      #{(o.id || o._id).toString().slice(-6).toUpperCase()}
                     </p>
+                    {/* USER NAME ADDED HERE */}
+                    <div className="mt-3 flex items-center gap-3">
+                      <div className="h-8 w-8 rounded-xl bg-slate-900 text-white flex items-center justify-center text-[10px] font-black uppercase flex-shrink-0">
+                        {o.user?.name?.[0]}
+                      </div>
+                      <div className="overflow-hidden">
+                        <p className="text-[11px] font-black text-slate-900 uppercase tracking-tight truncate">
+                          {o.user?.name || "Unknown User"}
+                        </p>
+                        <p className="text-[9px] text-slate-400 font-medium truncate uppercase tracking-tighter">
+                          {o.user?.email}
+                        </p>
+                      </div>
                     </div>
-                    <button
-                        onClick={() => navigate(`/orders/${o.id || o._id}`)}
-                        className="w-full flex justify-between items-center bg-slate-900 text-white px-6 py-5 rounded-[1.5rem] font-black text-xs uppercase tracking-widest shadow-xl shadow-slate-200 active:scale-95 transition-transform"
-                    >
-                    <span className="flex items-center gap-2">Total: <span className="text-emerald-400 text-sm">₹{o.totalAmount}</span></span>
-                    <Eye size={18} />
-                    </button>
+                  </div>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                    {new Date(o.createdAt).toLocaleDateString('en-GB')}
+                  </p>
                 </div>
+
+                {/* Status Badges Row */}
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <div className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase border shadow-sm ${getStatusColor(o.status)}`}>
+                    Order: {o.status}
+                  </div>
+                  <div className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase border shadow-sm ${getStatusColor(o.paymentStatus || 'pending')}`}>
+                    Pay: {o.paymentStatus || 'Pending'}
+                  </div>
+                </div>
+
+                {/* Action Button & Total */}
+                <button
+                  onClick={() => navigate(`/orders/${o.id || o._id}`)}
+                  className="w-full flex justify-between items-center bg-slate-900 text-white px-6 py-4 rounded-[1.2rem] font-black text-xs uppercase tracking-widest shadow-lg shadow-slate-200 active:scale-[0.98] transition-all"
+                >
+                  <div className="flex flex-col items-start">
+                    <span className="text-[8px] text-slate-400 leading-none mb-1">Total Amount</span>
+                    <span className="text-emerald-400 text-sm">₹{Number(o.totalAmount).toLocaleString('en-IN')}</span>
+                  </div>
+                  <div className="flex items-center gap-2 border-l border-slate-700 pl-4">
+                    <span>Details</span>
+                    <Eye size={16} />
+                  </div>
+                </button>
+              </div>
             ))}
           </div>
-
-          {hasMore && (
-            <div className="mt-12 mb-20 flex justify-center">
-              <button
-                onClick={handleViewMore}
-                disabled={loadingMore}
-                className="group relative flex items-center gap-3 bg-white border-2 border-emerald-600 px-10 py-4 rounded-[2rem] text-emerald-600 font-black text-xs uppercase tracking-[0.2em] transition-all hover:bg-emerald-600 hover:text-white shadow-xl shadow-emerald-100 disabled:opacity-50"
-              >
-                {loadingMore ? <Loader2 className="animate-spin" size={18} /> : <Plus size={18} />}
-                {loadingMore ? "Loading..." : "View More Orders"}
-              </button>
-            </div>
-          )}
         </>
       )}
     </div>
   );
-}//Pagination implemented
+}

@@ -110,3 +110,52 @@ export const deleteUser = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+// @desc    Update user profile
+// @route   PUT /api/users/:id
+export const updateUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = parseInt(id);
+
+    // 1. Check if ID is valid
+    if (isNaN(userId)) {
+      return res.status(400).json({ success: false, message: "Invalid ID format" });
+    }
+
+    // 2. Extract updateable fields from request body
+    const { name, phone, address, city, state, pincode, role } = req.body;
+
+    // 3. Verify user exists before updating
+    const userExists = await prisma.user.findUnique({ where: { id: userId } });
+    if (!userExists) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    // 4. Perform update
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        name: name !== undefined ? name : userExists.name,
+        phone: phone !== undefined ? phone : userExists.phone,
+        address: address !== undefined ? address : userExists.address,
+        city: city !== undefined ? city : userExists.city,
+        state: state !== undefined ? state : userExists.state,
+        pincode: pincode !== undefined ? pincode : userExists.pincode,
+        role: role !== undefined ? role : userExists.role,
+      },
+    });
+
+    // 5. Remove password and send back updated user
+    const { password, ...userData } = updatedUser;
+    res.status(200).json({ 
+      success: true, 
+      message: "Profile updated successfully", 
+      user: userData 
+    });
+
+  } catch (error) {
+    console.error("Update User Error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
