@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { useSearchParams } from "react-router-dom"; // 1. Import hook
+import { useSearchParams } from "react-router-dom";
 import api from "../api/axios";
 import { useCart } from "../context/CartContext";
 import ProductCard from "../components/ProductCard";
@@ -20,7 +20,6 @@ const CATEGORIES = [
 const Products = () => {
   const { addToCart } = useCart();
   
-  // 2. Initialize Search Params
   const [searchParams, setSearchParams] = useSearchParams();
   const urlCategory = searchParams.get("category");
 
@@ -30,12 +29,21 @@ const Products = () => {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
+  const [totalResults, setTotalResults] = useState(0); // Production-level meta info
   const ITEMS_PER_PAGE = 10;
 
-  // 3. Sync State with URL on Load or URL Change
+  // Debounce logic
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [searchTerm]);
+
   useEffect(() => {
     if (urlCategory) {
       setSelectedCategory(urlCategory);
@@ -44,71 +52,62 @@ const Products = () => {
     }
   }, [urlCategory]);
 
-  const fetchProducts = useCallback(async (pageNum, categoryName, isNewCategory = false) => {
+  const fetchProducts = useCallback(async (pageNum, categoryName, isNewCategory = false, searchQ = "") => {
     if (isNewCategory) setLoading(true);
     else setLoadingMore(true);
     
     setError(null);
     try {
       const categoryParam = categoryName === "All" ? "" : `&category=${encodeURIComponent(categoryName)}`;
-      const res = await api.get(`/products?page=${pageNum}&limit=${ITEMS_PER_PAGE}${categoryParam}`);
+      const searchParam = searchQ ? `&search=${encodeURIComponent(searchQ)}` : "";
       
-      const newData = res.data.items || res.data || [];
+      const res = await api.get(`/products?page=${pageNum}&limit=${ITEMS_PER_PAGE}${categoryParam}${searchParam}`);
       
-      if (Array.isArray(newData)) {
-        setProducts(prev => isNewCategory ? newData : [...prev, ...newData]);
-        setHasMore(newData.length === ITEMS_PER_PAGE);
-      }
+      // Handle production-level response structure
+      const newData = res.data.items || [];
+      const serverHasMore = res.data.hasMore ?? (newData.length === ITEMS_PER_PAGE);
+      
+      setProducts(prev => isNewCategory ? newData : [...prev, ...newData]);
+      setHasMore(serverHasMore);
+      setTotalResults(res.data.total || 0);
     } catch (err) {
-      console.error(err);
-      setError("We encountered an error loading products. Please try again.");
+      console.error("Fetch error:", err);
+      setError("Unable to load products. Check your connection.");
     } finally {
       setLoading(false);
       setLoadingMore(false);
     }
   }, []);
 
+  // Trigger fetch when category OR debounced search term changes
   useEffect(() => {
     setPage(1);
-    fetchProducts(1, selectedCategory, true);
-  }, [selectedCategory, fetchProducts]);
+    fetchProducts(1, selectedCategory, true, debouncedSearchTerm);
+  }, [selectedCategory, debouncedSearchTerm, fetchProducts]);
 
-  // 4. Update URL when dropdown changes (optional but recommended)
   const handleCategoryChange = (e) => {
     const value = e.target.value;
     setSelectedCategory(value);
-    if (value === "All") {
-      setSearchParams({}); // Clear URL params
-    } else {
-      setSearchParams({ category: value }); // Update URL params
-    }
+    setSearchParams(value === "All" ? {} : { category: value });
   };
 
   const handleLoadMore = () => {
     const nextPage = page + 1;
     setPage(nextPage);
-    fetchProducts(nextPage, selectedCategory, false);
+    fetchProducts(nextPage, selectedCategory, false, debouncedSearchTerm);
   };
-
-  const handleAdd = (product) => {
-    addToCart({ product, quantity: 1 });
-  };
-
-  const filteredProducts = products.filter(p =>
-    p.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
+      {/* SEARCH & FILTER BAR */}
       <div className="bg-white shadow-sm border-b border-gray-100 sticky top-0 z-30">
         <div className="container mx-auto px-4 py-4">
           <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
             
-            {/* CATEGORY SELECT */}
             <div className="w-full sm:w-64">
               <select
                 value={selectedCategory}
-                onChange={handleCategoryChange} // Updated to update URL too
+                onChange={handleCategoryChange}
                 className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-700 font-medium focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition-all cursor-pointer appearance-none"
                 style={{
                     backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e")`,
@@ -124,12 +123,11 @@ const Products = () => {
               </select>
             </div>
 
-            {/* SEARCH BOX */}
             <div className="relative w-full sm:w-80">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
               <input
                 type="text"
-                placeholder="Search items..."
+                placeholder="Search products, brands..."
                 className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 focus:bg-white focus:ring-2 focus:ring-emerald-500 rounded-xl outline-none transition-all shadow-sm"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -140,10 +138,17 @@ const Products = () => {
       </div>
 
       <div className="container mx-auto px-4 mt-8">
+        {/* Results Counter */}
+        {!loading && !error && products.length > 0 && (
+          <p className="mb-6 text-sm text-gray-500 font-medium">
+            Showing {products.length} of {totalResults} products
+          </p>
+        )}
+
         {loading ? (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
             {[...Array(10)].map((_, i) => (
-              <div key={i} className="bg-white rounded-2xl h-72 animate-pulse border border-gray-100" />
+              <div key={i} className="bg-white rounded-2xl h-80 animate-pulse border border-gray-100" />
             ))}
           </div>
         ) : error ? (
@@ -151,7 +156,7 @@ const Products = () => {
             <AlertCircle className="mx-auto text-red-500 mb-4" size={48} />
             <h2 className="text-xl font-bold text-gray-800">{error}</h2>
             <button 
-              onClick={() => fetchProducts(1, selectedCategory, true)} 
+              onClick={() => fetchProducts(1, selectedCategory, true, debouncedSearchTerm)} 
               className="mt-6 px-6 py-2 bg-emerald-600 text-white rounded-lg font-semibold hover:bg-emerald-700 transition"
             >
               Retry Connection
@@ -159,20 +164,28 @@ const Products = () => {
           </div>
         ) : (
           <>
-            {filteredProducts.length > 0 ? (
+            {products.length > 0 ? (
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
-                {filteredProducts.map((p) => (
-                  <ProductCard key={p.id} product={p} addToCart={handleAdd} />
+                {products.map((p) => (
+                  <ProductCard key={p.id || p._id} product={p} />
                 ))}
               </div>
             ) : (
               <div className="py-32 text-center text-gray-400">
                 <PackageOpen size={64} className="mx-auto mb-4 opacity-10" />
-                <p className="text-lg">No products found in this section.</p>
+                <p className="text-lg">No products match your criteria.</p>
+                {searchTerm && (
+                    <button 
+                        onClick={() => setSearchTerm("")}
+                        className="mt-2 text-emerald-600 font-bold hover:underline"
+                    >
+                        Clear Search
+                    </button>
+                )}
               </div>
             )}
 
-            {hasMore && (
+            {hasMore && products.length > 0 && (
               <div className="mt-16 mb-12 flex justify-center">
                 <button
                   onClick={handleLoadMore}
@@ -197,7 +210,7 @@ const Products = () => {
             {!hasMore && products.length > 0 && (
               <div className="mt-12 text-center">
                 <span className="px-4 py-1 bg-gray-100 text-gray-400 text-xs uppercase tracking-widest rounded-full">
-                  End of Catalog
+                  You've reached the end
                 </span>
               </div>
             )}

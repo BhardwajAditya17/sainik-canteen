@@ -32,21 +32,35 @@ model User {
 
 
 model Product {
-  id          Int      @id @default(autoincrement())
-  name        String
-  description String?
-  category    String
-  price       Decimal  @db.Decimal(10, 2)
-  stock       Int      @default(0)
-  image       String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           Int      @id @default(autoincrement())
+  sku          String?  // Unique identifier for inventory/stock tracking
+  slug         String   @unique // SEO-friendly URL (e.g., "maggi-masala-70g")
+  name         String
+  brand        String?  @default("Generic") // 
+  description  String?  @db.Text // Use .Text for long descriptions
+  category     String
+  price        Decimal  @db.Decimal(10, 2)
+  discountPrice Decimal? @db.Decimal(10, 2) // For sales/promotions
+  stock        Int      @default(0)
+  image        String
+  
+  // Production Flags
+  isActive     Boolean  @default(true) // instead of deleting products
+  isFeatured   Boolean  @default(false)
+  
+  // Metrics (Denormalized for performance)
+  averageRating Float    @default(0.0)
+  reviewCount   Int      @default(0)
 
-  cartItems  CartItem[]
-  orderItems OrderItem[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  cartItems    CartItem[]
+  orderItems   OrderItem[]
 
   @@index([category])
   @@index([name])
+  @@index([brand]) // 💡 Added index for brand-based filtering
   @@map("products")
 }
 

@@ -146,18 +146,15 @@ export async function createOrder(req, res, next) {
 }
 
 /***************************************
- * GET: User Orders (For Customer Profile)
+ * GET: User Orders
  ***************************************/
 export async function getUserOrders(req, res, next) {
   try {
     const orders = await prisma.order.findMany({
       where: { userId: req.user.id },
-      include: { 
-        orderItems: { include: { product: true } } 
-      },
+      include: { orderItems: { include: { product: true } } },
       orderBy: { createdAt: 'desc' }
     });
-
     res.json({ success: true, orders });
   } catch (error) {
     next(error);
@@ -175,18 +172,12 @@ export async function getOrderById(req, res, next) {
     const order = await prisma.order.findUnique({
       where: { id },
       include: { 
-        user: { 
-          select: { id: true, name: true, email: true, phone: true } 
-        }, 
-        orderItems: { 
-          include: { product: true } 
-        } 
+        user: { select: { id: true, name: true, email: true, phone: true } }, 
+        orderItems: { include: { product: true } } 
       }
     });
 
     if (!order) return res.status(404).json({ message: "Order not found" });
-
-    // Authorization check
     if (order.userId !== req.user.id && req.user.role !== 'admin') {
       return res.status(403).json({ message: "Access denied" });
     }
@@ -198,36 +189,18 @@ export async function getOrderById(req, res, next) {
 }
 
 /***************************************
- * ADMIN: Get All Orders (PAGINATED & FILTERED)
+ * ADMIN: Get All Orders
  ***************************************/
 export const getAllOrders = async (req, res) => {
   try {
-    const { 
-      page = 1, 
-      limit = 50, 
-      search, 
-      status, 
-      paymentStatus, 
-      timeRange 
-    } = req.query;
-
+    const { page = 1, limit = 50, search, status, paymentStatus, timeRange } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const take = parseInt(limit);
-
-    // 1. Build Dynamic Where Clause
     const where = {};
 
-    // Order Status Filter
-    if (status && status !== "All") {
-      where.status = status;
-    }
+    if (status && status !== "All") where.status = status;
+    if (paymentStatus && paymentStatus !== "All") where.paymentStatus = paymentStatus;
 
-    // Payment Status Filter
-    if (paymentStatus && paymentStatus !== "All") {
-      where.paymentStatus = paymentStatus;
-    }
-
-    // Advanced Search (Name, Email, or Numeric ID)
     if (search) {
       const isNumeric = !isNaN(search);
       where.OR = [
@@ -237,24 +210,23 @@ export const getAllOrders = async (req, res) => {
       ];
     }
 
-    // Time Filter Logic
     if (timeRange && timeRange !== "All Time") {
-      const now = new Date();
-      let startDate = new Date();
+  const now = new Date();
+  const startDate = new Date();
+  startDate.setHours(0, 0, 0, 0); // 🔥 CRITICAL: Match the Analytics logic
 
-      if (timeRange === "Day") {
-        startDate.setHours(0, 0, 0, 0);
-      } else if (timeRange === "Week") {
-        startDate.setDate(now.getDate() - 7);
-      } else if (timeRange === "Month") {
-        startDate.setMonth(now.getMonth() - 1);
-      } else if (timeRange === "Year") {
-        startDate.setFullYear(now.getFullYear() - 1);
-      }
-      where.createdAt = { gte: startDate };
-    }
+  if (timeRange === "Day") {
+    // Already set to midnight today
+  } else if (timeRange === "Week") {
+    startDate.setDate(now.getDate() - 7);
+  } else if (timeRange === "Month") {
+    startDate.setDate(now.getDate() - 30); // Use 30 days for consistency with '30d'
+  } else if (timeRange === "Year") {
+    startDate.setFullYear(now.getFullYear() - 1);
+  }
+  where.createdAt = { gte: startDate };
+}
 
-    // 2. Fetch Data & Count in Parallel
     const [totalOrders, orders] = await Promise.all([
       prisma.order.count({ where }),
       prisma.order.findMany({
@@ -269,7 +241,6 @@ export const getAllOrders = async (req, res) => {
       })
     ]);
 
-    // 3. Structured Response for Frontend "View More"
     res.json({
       success: true,
       orders,
@@ -277,9 +248,7 @@ export const getAllOrders = async (req, res) => {
       currentPage: parseInt(page),
       totalPages: Math.ceil(totalOrders / take)
     });
-
   } catch (error) {
-    console.error("Admin Fetch Orders Error:", error);
     res.status(500).json({ message: "Server Error" });
   }
 };
@@ -291,7 +260,6 @@ export const updateOrderStatus = async (req, res) => {
   try {
     const { id } = req.params;
     const { status, paymentStatus } = req.body;
-
     const updateData = {};
     if (status) updateData.status = status;
     if (paymentStatus) updateData.paymentStatus = paymentStatus;
@@ -304,10 +272,109 @@ export const updateOrderStatus = async (req, res) => {
         orderItems: { include: { product: true } }
       }
     });
-    
     res.json(order);
   } catch (error) {
-    console.error("Update Order Error:", error);
     res.status(500).json({ message: "Update failed" });
+  }
+};
+
+/***************************************
+ * ADMIN: Get Analytics (FIXED DATE LOGIC)
+ ***************************************/
+export const getAdminAnalytics = async (req, res) => {
+  try {
+    const { range = '7d', interval = 'day' } = req.query;
+    
+    // 1. Setup Fresh Dates
+    const now = new Date();
+    const startDate = new Date();
+    startDate.setHours(0, 0, 0, 0); // Start from the very beginning of the day
+
+    if (range === '7d') {
+      startDate.setDate(now.getDate() - 7);
+    } else if (range === '30d') {
+      startDate.setDate(now.getDate() - 30);
+    } else if (range === '90d') {
+      startDate.setDate(now.getDate() - 90);
+    } else {
+      startDate.setFullYear(2000); // All Time
+    }
+
+    // 2. Fetch Orders (Filter for Paid/Success only)
+    const orders = await prisma.order.findMany({
+      where: {
+        createdAt: { gte: startDate },
+        paymentStatus: { in: ['Paid', 'Completed', 'Success', 'paid'] } 
+      },
+      include: { 
+        orderItems: { 
+          include: { product: true } 
+        } 
+      },
+      orderBy: { createdAt: 'asc' }
+    });
+
+    const totalUsers = await prisma.user.count();
+
+    // 3. Initialize Accumulators
+    let totalRevenue = 0;
+    const chartDataMap = {};
+    const categoryMap = {};
+    const productMap = {};
+
+    // 4. Single Pass Processing
+    orders.forEach(order => {
+      // Convert Decimal to Number for math
+      const orderAmount = Number(order.totalAmount) || 0;
+      totalRevenue += orderAmount;
+
+      // Trend Logic
+      const dateKey = order.createdAt.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' });
+      chartDataMap[dateKey] = (chartDataMap[dateKey] || 0) + orderAmount;
+
+      // Item Level Logic
+      order.orderItems.forEach(item => {
+        const itemRevenue = Number(item.price) * item.quantity;
+        
+        // Category distribution
+        const cat = item.product?.category || "Uncategorized";
+        categoryMap[cat] = (categoryMap[cat] || 0) + itemRevenue;
+
+        // Top Products
+        const pName = item.product?.name || "Unknown Product";
+        productMap[pName] = (productMap[pName] || 0) + itemRevenue;
+      });
+    });
+
+    // 5. Format Data for Recharts
+    const chartData = Object.keys(chartDataMap).map(name => ({
+      name,
+      sales: chartDataMap[name]
+    }));
+
+    const pieChartData = Object.keys(categoryMap).map(name => ({
+      name,
+      value: categoryMap[name]
+    }));
+
+    // Sorting: We sort ASCENDING here so Recharts Vertical Bar displays highest at the top
+    const topProducts = Object.keys(productMap)
+      .map(name => ({ name, sales: productMap[name] }))
+      .sort((a, b) => a.sales - b.sales) 
+      .slice(-10); // Take the top 10
+
+    res.json({
+      success: true,
+      totalRevenue,
+      totalOrders: orders.length,
+      totalUsers,
+      chartData,
+      pieChartData,
+      topProducts
+    });
+
+  } catch (error) {
+    console.error("Analytics Error:", error);
+    res.status(500).json({ success: false, message: "Analytics failed" });
   }
 };

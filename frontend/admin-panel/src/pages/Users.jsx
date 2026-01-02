@@ -77,7 +77,6 @@ const UserTable = React.memo(({ data, title, icon: Icon, colorClass, badgeColor,
                    </div>
                 </td>
                 <td className="px-6 py-4 text-right">
-                  {/* ✅ UI FIX: Removed text, kept only the Eye icon */}
                   <button 
                       onClick={() => onView(user.id || user._id)} 
                       className="p-2.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all"
@@ -101,6 +100,7 @@ const Users = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [totalDatabaseResults, setTotalDatabaseResults] = useState(0);
   
   const navigate = useNavigate();
 
@@ -109,16 +109,24 @@ const Users = () => {
     address: "", city: "", state: "", pincode: ""
   });
 
+  // ✅ DATABASE QUERY LOGIC: Debounced search to query the whole database
   useEffect(() => {
-    fetchUsers();
-  }, []);
+    const delayDebounceFn = setTimeout(() => {
+      fetchUsers(searchTerm);
+    }, 500);
 
-  const fetchUsers = async () => {
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchTerm]);
+
+  const fetchUsers = async (query = "") => {
     try {
       setLoading(true);
-      const { data } = await api.get("/users");
+      const { data } = await api.get("/users", {
+        params: { search: query } // Pass search to backend
+      });
       const userList = data.users || (Array.isArray(data) ? data : []);
       setUsers(userList);
+      setTotalDatabaseResults(data.totalUsers || userList.length);
     } catch (err) {
       console.error("Failed to load users", err);
     } finally {
@@ -146,23 +154,15 @@ const Users = () => {
     }
   };
 
-  // ✅ PERFORMANCE: Memoize filtering logic to keep search bar snappy
+  // ✅ UPDATED: Now categorizes the results already filtered by the Database
   const filteredGroups = useMemo(() => {
-    const filtered = users.filter(user => 
-      (user.name?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
-      (user.email?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
-      (user.phone || "").includes(searchTerm) ||
-      (user.city?.toLowerCase() || "").includes(searchTerm.toLowerCase())
-    );
-
     return {
-      admins: filtered.filter(u => u.role === 'admin'),
-      customers: filtered.filter(u => u.role !== 'admin'),
-      total: filtered.length
+      admins: users.filter(u => u.role === 'admin'),
+      customers: users.filter(u => u.role !== 'admin'),
+      total: users.length // Matches what the database returned
     };
-  }, [users, searchTerm]);
+  }, [users]);
 
-  // ✅ NAVIGATION FIX: Using absolute path to fix 404
   const handleViewProfile = useCallback((id) => {
     navigate(`/users/${id}`);
   }, [navigate]);
@@ -204,7 +204,8 @@ const Users = () => {
          </div>
          <div className="flex items-center gap-2 text-sm text-slate-500 font-medium">
             <Filter size={16} />
-            <span>Showing {filteredGroups.total} total results</span>
+            {/* Reflects results from the actual DB query */}
+            <span>Showing {filteredGroups.total} total database results</span>
          </div>
       </div>
 
@@ -233,7 +234,6 @@ const Users = () => {
         </div>
       )}
 
-      {/* ✅ ADD USER MODAL WITH ADDRESS FIELDS (STILL INTACT) */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm overflow-y-auto">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl my-8 border border-slate-100">
@@ -243,7 +243,6 @@ const Users = () => {
             </div>
             
             <form onSubmit={handleCreateUser} className="p-6 space-y-6">
-              {/* Section 1: Basic Info */}
               <div className="space-y-4">
                 <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400 flex items-center gap-2">
                     <Shield size={14} /> Account Credentials
@@ -275,7 +274,6 @@ const Users = () => {
                 </div>
               </div>
 
-              {/* Section 2: Address (Optional) */}
               <div className="space-y-4">
                 <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400 flex items-center gap-2">
                     <MapPin size={14} /> Address Details (Optional)

@@ -28,12 +28,10 @@ import {
   Package,
   PieChart as PieChartIcon,
   Clock,
-  Loader2,
-  Filter
+  Loader2
 } from 'lucide-react';
 
 // --- UTILS ---
-// Updated palette to match Emerald theme
 const COLORS = ['#059669', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
 const parseNumber = (val) => {
@@ -138,7 +136,6 @@ export default function Analytics() {
       }
     } catch (err) {
       console.error("Failed to load analytics", err);
-      // Fallback/Mock data for preview if API fails
       setError("Failed to load analytics data. Ensure backend is running.");
     } finally {
       setLoading(false);
@@ -174,6 +171,16 @@ export default function Analytics() {
     '90d': 'Last 90 Days',
     'all': 'All Time'
   };
+
+  // ✅ UPGRADED TOP 10 LOGIC
+  // We sort by revenue ASCENDING so Recharts displays the HIGHEST at the TOP.
+  const topTenDisplayData = useMemo(() => {
+    if (!rawData.topProducts || rawData.topProducts.length === 0) return [];
+    
+    return [...rawData.topProducts]
+      .sort((a, b) => a.sales - b.sales) // Sort Lowest to Highest
+      .slice(-10); // Take the 10 highest (the largest is now at the last index)
+  }, [rawData.topProducts]);
 
   if (error) {
     return (
@@ -211,8 +218,6 @@ export default function Analytics() {
           </div>
           
           <div className="flex flex-wrap gap-3">
-            
-            {/* Range Selector */}
             <div className="relative group">
                 <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
                   <Calendar size={16} className="text-slate-400 group-hover:text-emerald-500 transition-colors" />
@@ -232,7 +237,6 @@ export default function Analytics() {
                 </div>
             </div>
 
-            {/* Interval Selector */}
             <div className="relative group">
                 <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
                   <Clock size={16} className="text-slate-400 group-hover:text-emerald-500 transition-colors" />
@@ -304,189 +308,100 @@ export default function Analytics() {
 
         {/* Main Charts Row */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          
-          {/* Revenue Chart */}
           <div className="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-slate-200 h-[450px] flex flex-col">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h3 className="text-lg font-bold text-slate-800">Revenue Trends</h3>
-                <p className="text-sm text-slate-500 font-medium">Grouped by <span className="capitalize text-emerald-600">{interval}</span></p>
-              </div>
-              <div className="p-2 bg-slate-50 rounded-lg border border-slate-100">
-                 <TrendingUp size={20} className="text-emerald-500" />
-              </div>
-            </div>
-            
+            <h3 className="text-lg font-bold text-slate-800 mb-6">Revenue Trends</h3>
             <div className="flex-1 min-h-0">
               {loading ? (
-                <div className="h-full flex items-end justify-between gap-3 px-4 animate-pulse">
-                  {[...Array(12)].map((_, i) => (
-                    <div key={i} className="bg-slate-100 rounded-t-lg w-full" style={{ height: `${Math.random() * 60 + 20}%` }}></div>
-                  ))}
-                </div>
+                <div className="h-full flex items-center justify-center"><Loader2 className="animate-spin text-emerald-500" /></div>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={rawData.chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                  <LineChart data={rawData.chartData}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis 
-                      dataKey="name" 
-                      axisLine={false} 
-                      tickLine={false} 
-                      tick={{ fill: '#64748b', fontSize: 12, fontWeight: 500 }} 
-                      dy={10}
-                      minTickGap={30} 
-                    />
-                    <YAxis 
-                      axisLine={false} 
-                      tickLine={false} 
-                      tick={{ fill: '#64748b', fontSize: 12, fontWeight: 500 }} 
-                      tickFormatter={(val) => `₹${val.toLocaleString('en-IN', { notation: 'compact' })}`}
-                    />
-                    <Tooltip 
-                      cursor={{ stroke: '#10b981', strokeWidth: 1, strokeDasharray: '4 4' }}
-                      contentStyle={{ 
-                        borderRadius: '12px', 
-                        border: '1px solid #e2e8f0', 
-                        boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
-                        padding: '12px'
-                      }}
-                      formatter={(val) => [formatCurrency(val), 'Revenue']}
-                      labelStyle={{ color: '#64748b', marginBottom: '4px', fontSize: '12px' }}
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="sales" 
-                      stroke="#059669" 
-                      strokeWidth={3} 
-                      dot={false}
-                      activeDot={{ r: 6, fill: '#059669', stroke: '#fff', strokeWidth: 2 }} 
-                    />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} tickFormatter={(val) => `₹${val.toLocaleString('en-IN', { notation: 'compact' })}`} />
+                    <Tooltip contentStyle={{ borderRadius: '12px' }} formatter={(val) => [formatCurrency(val), 'Revenue']} />
+                    <Line type="monotone" dataKey="sales" stroke="#059669" strokeWidth={3} dot={false} />
                   </LineChart>
                 </ResponsiveContainer>
               )}
             </div>
           </div>
 
-          {/* Pie Chart */}
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 h-[450px] flex flex-col">
-            <h3 className="text-lg font-bold text-slate-800 mb-1 flex items-center gap-2">
-              <PieChartIcon size={20} className="text-emerald-500" />
-              Sales Distribution
-            </h3>
-            <p className="text-sm text-slate-500 mb-4 font-medium">Revenue by category</p>
-
-            <div className="flex-1 min-h-0 relative">
-               {!loading && rawData.pieChartData && rawData.pieChartData.length > 0 ? (
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col h-[450px]">
+            <h3 className="text-lg font-bold text-slate-800 mb-4">Sales Distribution</h3>
+            <div className="flex-1">
+               {!loading && rawData.pieChartData.length > 0 ? (
                  <ResponsiveContainer width="100%" height="100%">
                    <PieChart>
-                     <Pie
-                       data={rawData.pieChartData}
-                       cx="50%"
-                       cy="50%"
-                       innerRadius={60}
-                       outerRadius={100}
-                       paddingAngle={5}
-                       dataKey="value"
-                       stroke="none"
-                     >
-                       {rawData.pieChartData.map((entry, index) => (
-                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                       ))}
+                     <Pie data={rawData.pieChartData} innerRadius={60} outerRadius={100} paddingAngle={5} dataKey="value" stroke="none">
+                       {rawData.pieChartData.map((_, index) => <Cell key={index} fill={COLORS[index % COLORS.length]} />)}
                      </Pie>
-                     <Tooltip 
-                        formatter={(val) => formatCurrency(val)} 
-                        contentStyle={{ 
-                            borderRadius: '12px', 
-                            border: '1px solid #e2e8f0', 
-                            boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
-                        }}
-                     />
-                     <Legend 
-                        layout="horizontal" 
-                        verticalAlign="bottom" 
-                        align="center"
-                        wrapperStyle={{ fontSize: '12px', paddingTop: '20px', fontWeight: 500, color: '#475569' }}
-                        iconType="circle"
-                     />
+                     <Tooltip formatter={(val) => formatCurrency(val)} />
+                     <Legend verticalAlign="bottom" iconType="circle" />
                    </PieChart>
                  </ResponsiveContainer>
                ) : (
-                 <div className="h-full flex flex-col items-center justify-center text-slate-400 text-sm">
-                   {loading ? (
-                     <Loader2 className="animate-spin h-8 w-8 text-emerald-500 mb-2" />
-                   ) : (
-                     <div className="flex flex-col items-center">
-                        <PieChartIcon className="h-10 w-10 text-slate-200 mb-2" />
-                        <p>No category data</p>
-                     </div>
-                   )}
-                 </div>
+                 <div className="h-full flex items-center justify-center text-slate-400">Loading distribution...</div>
                )}
             </div>
           </div>
         </div>
 
-        {/* Top Products */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 h-[450px] flex flex-col">
-           <div className="flex justify-between items-center mb-6">
-                <div>
-                    <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                        <Package size={20} className="text-purple-500" />
-                        Top Performing Products
-                    </h3>
-                    <p className="text-sm text-slate-500 font-medium mt-1">Highest revenue generators</p>
-                </div>
-                <button className="text-sm text-emerald-600 font-semibold hover:underline">View All</button>
+        {/* Top Products - Fixed Sorting & Range Persistence */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 h-[550px] flex flex-col">
+           <div className="mb-6">
+                <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                    <Package size={20} className="text-purple-500" />
+                    Top 10 Products by Revenue
+                </h3>
+                <p className="text-sm text-slate-500 font-medium">Largest revenue generators for {rangeLabels[timeRange]}</p>
            </div>
            
            <div className="flex-1 min-h-0 w-full">
-             {!loading && rawData.topProducts && rawData.topProducts.length > 0 ? (
-               <ResponsiveContainer width="100%" height="100%">
+             {!loading && topTenDisplayData.length > 0 ? (
+               <ResponsiveContainer width="100%" height="100%" key={timeRange}>
                  <BarChart 
-                    data={rawData.topProducts} 
+                    data={topTenDisplayData} 
                     layout="vertical" 
-                    margin={{ top: 0, right: 30, left: 10, bottom: 0 }}
-                    barGap={4}
+                    margin={{ top: 0, right: 30, left: 20, bottom: 0 }}
                  >
                     <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
                     <XAxis type="number" hide />
                     <YAxis 
                       dataKey="name" 
                       type="category" 
-                      width={150} 
-                      tick={{ fontSize: 13, fill: '#475569', fontWeight: 500 }}
+                      width={160} 
+                      tick={{ fontSize: 12, fill: '#475569', fontWeight: 600 }}
                       tickLine={false}
                       axisLine={false}
                     />
                     <Tooltip 
                        cursor={{ fill: '#f8fafc' }}
-                       contentStyle={{ 
-                            borderRadius: '12px', 
-                            border: '1px solid #e2e8f0', 
-                            boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
-                       }}
-                       formatter={(value) => [formatCurrency(value), 'Revenue']}
+                       contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0' }}
+                       formatter={(value) => [formatCurrency(value), 'Total Revenue']}
                     />
-                    <Bar 
-                      dataKey="sales" 
-                      fill="#8b5cf6" 
-                      radius={[0, 6, 6, 0]} 
-                      barSize={24}
-                    >
-                         {rawData.topProducts.map((entry, index) => (
-                             <Cell key={`cell-${index}`} fill={index < 3 ? '#059669' : '#94a3b8'} />
-                         ))}
+                    <Bar dataKey="sales" radius={[0, 6, 6, 0]} barSize={28}>
+                         {topTenDisplayData.map((entry, index) => {
+                             // Recharts draws bottom-to-top, so the highest index is the top bar.
+                             const isTopThree = index >= topTenDisplayData.length - 3;
+                             return (
+                               <Cell 
+                                  key={`cell-${index}`} 
+                                  fill={isTopThree ? '#059669' : '#cbd5e1'} 
+                               />
+                             );
+                         })}
                     </Bar>
                  </BarChart>
                </ResponsiveContainer>
              ) : (
-                <div className="h-full flex items-center justify-center text-slate-400">
-                   {loading ? "Loading..." : "No product sales data available"}
+                <div className="h-full flex flex-col items-center justify-center text-slate-400 gap-3">
+                   <Loader2 className="animate-spin h-8 w-8 text-emerald-600" />
+                   <p className="text-sm font-medium">Calculating ranked performance...</p>
                 </div>
              )}
            </div>
         </div>
-
     </div>
   );
-};
+}

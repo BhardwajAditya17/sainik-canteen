@@ -26,13 +26,17 @@ const Home = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
   const { addToCart } = useCart();
 
+  // --- UPDATED FETCH LOGIC ---
   useEffect(() => {
     const fetchFeatured = async () => {
       setLoading(true);
       try {
-        const res = await api.get("/products?limit=8");
+        // Added isFeatured=true to the query string
+        const res = await api.get("/products?isFeatured=true&limit=8");
+        
+        // Handle different possible API response structures
         const data = res.data.items || res.data.products || res.data || [];
-        setFeatured(Array.isArray(data) ? data.slice(0, 8) : []);
+        setFeatured(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error("Failed to load featured products", err);
       } finally {
@@ -42,7 +46,7 @@ const Home = () => {
     fetchFeatured();
   }, []);
 
-  // 🔹 AUTO SLIDE EFFECT (added)
+  // 🔹 AUTO SLIDE EFFECT (Resets on manual slide change)
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentSlide((prev) =>
@@ -50,10 +54,10 @@ const Home = () => {
       );
     }, 3000);
 
+    // Cleanup clears the interval whenever currentSlide changes, resetting the clock
     return () => clearInterval(interval);
-  }, []);
+  }, [currentSlide]); 
 
-  // Infinite Cycle Logic
   const nextSlide = () => {
     setCurrentSlide((prev) => (prev === CATEGORIES.length - 1 ? 0 : prev + 1));
   };
@@ -64,6 +68,7 @@ const Home = () => {
 
   const handleAdd = (product) => {
     addToCart({ product, quantity: 1 });
+    // Using a cleaner notification could be a next step
     alert(`${product.name} added to cart!`);
   };
 
@@ -134,7 +139,7 @@ const Home = () => {
         </h2>
 
         <div className="mb-16 relative group">
-          <div className="relative h-[300px] overflow-hidden bg-white rounded-xl">
+          <div className="relative h-[300px] overflow-hidden bg-white rounded-xl border border-slate-100">
             <div
               className="flex h-full transition-transform duration-500 ease-in-out"
               style={{ transform: `translateX(-${currentSlide * 100}%)` }}
@@ -143,10 +148,10 @@ const Home = () => {
                 <div key={index} className="min-w-full h-full flex items-center justify-center">
                   <Link
                     to={`/products?category=${encodeURIComponent(cat.title)}`}
-                    className="flex flex-col items-center justify-center space-y-4"
+                    className="flex flex-col items-center justify-center space-y-4 hover:scale-110 transition-transform"
                   >
                     <span className="text-8xl">{cat.img}</span>
-                    <span className="text-2xl font-black uppercase tracking-tighter">
+                    <span className="text-2xl font-black uppercase tracking-tighter text-slate-800">
                       {cat.title}
                     </span>
                   </Link>
@@ -184,7 +189,7 @@ const Home = () => {
           </div>
         </div>
 
-        {/* FEATURED PRODUCTS */}
+        {/* FEATURED PRODUCTS SECTION */}
         <section>
           <div className="flex justify-between items-end mb-8">
             <div>
@@ -192,7 +197,7 @@ const Home = () => {
                 Featured Products
               </h2>
               <p className="text-slate-500 mt-1">
-                Handpicked items just for you
+                Our top-rated picks for you
               </p>
             </div>
             <Link
@@ -214,14 +219,20 @@ const Home = () => {
               {featured.length > 0 ? (
                 featured.map((p) => (
                   <ProductCard
-                    key={p.id}
+                    key={p._id || p.id}
                     product={p}
                     onAdd={() => handleAdd(p)}
                   />
                 ))
               ) : (
-                <div className="col-span-full text-center py-10 text-slate-500 bg-white rounded-xl">
-                  No featured products available at the moment.
+                <div className="col-span-full text-center py-20 bg-white rounded-3xl border border-dashed border-slate-200">
+                  <div className="inline-flex p-4 bg-slate-50 rounded-full mb-4">
+                     <Star className="text-slate-300" size={40} />
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-800">No Featured Items</h3>
+                  <p className="text-slate-500 text-sm max-w-xs mx-auto">
+                    We haven't highlighted any products today. Check back soon for exclusive deals!
+                  </p>
                 </div>
               )}
             </div>

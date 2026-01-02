@@ -1,6 +1,6 @@
 import React, { useContext, useState } from "react";
 import { Link } from "react-router-dom";
-import { ShoppingCart, Package } from "lucide-react";
+import { ShoppingCart, Package, Tag, Percent } from "lucide-react";
 import { CartContext } from "../context/CartContext";
 
 export default function ProductCard({ product }) {
@@ -9,6 +9,12 @@ export default function ProductCard({ product }) {
 
   const hasValidImage = product.image && product.image.startsWith("http");
   const isOutOfStock = product.stock <= 0;
+  
+  // Pricing Logic
+  const price = Number(product.price);
+  const discountPrice = Number(product.discountPrice);
+  const hasDiscount = discountPrice > 0 && discountPrice < price;
+  const discountPercentage = hasDiscount ? Math.round(((price - discountPrice) / price) * 100) : 0;
 
   const handleQuickAdd = async (e) => {
     e.preventDefault();
@@ -28,68 +34,84 @@ export default function ProductCard({ product }) {
 
   return (
     <Link
-      to={`/products/${product.id}`}
-      className="group relative flex flex-col bg-white rounded-2xl shadow-md border border-gray-100 hover:shadow-xl transition-all duration-300 hover:-translate-y-1 overflow-hidden h-full"
+      to={`/products/${product.id || product._id}`}
+      className="group relative flex flex-col bg-white rounded-xl md:rounded-2xl shadow-sm border border-slate-100 hover:shadow-xl transition-all duration-300 overflow-hidden h-full"
     >
-      {/* IMAGE */}
-      <div className="relative h-56 bg-gray-50 flex items-center justify-center overflow-hidden">
+      {/* IMAGE SECTION */}
+      <div className="relative aspect-square w-full bg-slate-50 flex items-center justify-center overflow-hidden">
         {hasValidImage ? (
           <img
             src={product.image}
             alt={product.name}
-            className="w-full h-full object-contain p-4 mix-blend-multiply transition-transform duration-500 group-hover:scale-105"
+            className="w-full h-full object-contain p-4 md:p-6 transition-transform duration-500 group-hover:scale-110"
             loading="lazy"
           />
         ) : (
-          <div className="flex flex-col items-center justify-center text-gray-300">
-            <Package size={48} className="mb-2" />
-            <span className="text-xs font-medium">No Image</span>
+          <div className="flex flex-col items-center justify-center text-slate-300">
+            <Package size={32} className="md:size-12 mb-2" />
+            <span className="text-[10px] font-medium">No Image</span>
           </div>
         )}
 
-        {isOutOfStock && (
-          <div className="absolute top-3 right-3 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded shadow-sm">
-            Out of Stock
-          </div>
-        )}
+        {/* Status Badges */}
+        <div className="absolute top-2 left-2 flex flex-col gap-1.5 z-10">
+          {isOutOfStock ? (
+            <span className="bg-slate-900/80 backdrop-blur-md text-white text-[9px] md:text-[10px] font-bold px-2 py-1 rounded-md uppercase tracking-wider">
+              Sold Out
+            </span>
+          ) : hasDiscount ? (
+            <span className="bg-rose-500 text-white text-[9px] md:text-[10px] font-bold px-2 py-1 rounded-md shadow-sm flex items-center gap-1">
+              <Percent size={10} /> {discountPercentage}% OFF
+            </span>
+          ) : null}
+        </div>
       </div>
 
-      {/* CONTENT */}
-      <div className="p-5 flex flex-col flex-grow">
-        <div className="text-xs font-semibold text-emerald-600 uppercase tracking-wider mb-2">
-          {product.category || "General"}
+      {/* CONTENT SECTION */}
+      <div className="p-3 md:p-5 flex flex-col flex-grow">
+        {/* Brand & Category */}
+        <div className="flex items-center gap-2 mb-1.5">
+          <span className="text-[9px] md:text-[10px] font-bold text-emerald-600 uppercase tracking-tighter bg-emerald-50 px-1.5 py-0.5 rounded">
+            {product.brand || "Original"}
+          </span>
+          <span className="text-[9px] md:text-[10px] text-slate-400 font-medium uppercase truncate">
+            {product.category}
+          </span>
         </div>
 
-        <h3 className="font-bold text-gray-900 text-lg leading-tight mb-2 line-clamp-2 group-hover:text-emerald-700 transition-colors">
+        {/* Product Name - Fully Visible */}
+        <h3 className="font-bold text-slate-900 text-sm md:text-base lg:text-lg leading-tight mb-3 group-hover:text-emerald-600 transition-colors break-words">
           {product.name}
         </h3>
 
-        <p className="text-sm text-gray-500 line-clamp-2 mb-4 flex-grow">
-          {product.description || "No description available for this item."}
-        </p>
-
-        <div className="flex items-center justify-between mt-auto pt-4 border-t border-gray-100">
+        {/* Price & Action Container */}
+        <div className="mt-auto pt-3 border-t border-slate-50 flex items-center justify-between gap-2">
           <div className="flex flex-col">
-            <span className="text-xs text-gray-400 font-medium">Price</span>
-            <span className="text-xl font-bold text-gray-900">₹{product.price}</span>
+            {hasDiscount && (
+              <span className="text-[10px] md:text-xs text-slate-400 line-through decoration-rose-300">
+                ₹{price}
+              </span>
+            )}
+            <span className="text-base md:text-xl font-extrabold text-slate-900">
+              ₹{hasDiscount ? discountPrice : price}
+            </span>
           </div>
 
           <button
             onClick={handleQuickAdd}
             disabled={isOutOfStock || adding}
-            className={`flex items-center justify-center w-10 h-10 rounded-full transition-all shadow-sm
+            className={`flex items-center justify-center rounded-xl transition-all active:scale-95 shadow-sm
               ${isOutOfStock
-                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                : adding
-                ? "bg-emerald-600 text-white cursor-wait"
-                : "bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white"
+                ? "bg-slate-100 text-slate-400 cursor-not-allowed p-2"
+                : "bg-emerald-600 text-white hover:bg-emerald-700 p-2.5 md:p-3"
               }`}
-            title={isOutOfStock ? "Out of Stock" : "Add to Cart"}
           >
             {adding ? (
-              <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+              <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full" />
+            ) : isOutOfStock ? (
+              <span className="text-[9px] font-bold px-1">N/A</span>
             ) : (
-              <ShoppingCart size={18} />
+              <ShoppingCart size={18} className="md:w-5 md:h-5" />
             )}
           </button>
         </div>

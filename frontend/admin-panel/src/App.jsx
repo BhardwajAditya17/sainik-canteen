@@ -8,15 +8,15 @@ import Login from "./pages/Login";
 
 // Existing Pages
 import Products from "./pages/Products";
+import ProductDetails from './pages/ProductDetails';
 import Orders from "./pages/Orders";
-
 import OrderDetails from './pages/OrderDetails';
 
 
 import Users from './pages/Users';
 import UserDetails from './pages/UserDetails';
 import Analytics from "./pages/Analytics";
-import NotFound from "./pages/NotFound"; // A simple 404 page
+import NotFound from "./pages/NotFound"; 
 
 import { useAuth } from "./context/AuthContext";
 
@@ -68,6 +68,7 @@ function App() {
         <Route path="orders" element={<Orders />} />
         <Route path="orders/:id" element={<OrderDetails />} />
         <Route path="products" element={<Products />} />
+        <Route path="products/:id" element={<ProductDetails />} />
 
         {/* Expanded Modules (Future Proofing) */}
         <Route path="users" element={<Users />} />

@@ -3,14 +3,15 @@ import { useNavigate } from "react-router-dom";
 import api from "../api/axios";
 import {
   Eye, Search, ShoppingBag, Loader2, CreditCard,
-  Package, ChevronDown, Calendar, Clock, Plus
+  Package, ChevronDown, Calendar, Clock
 } from "lucide-react";
 
 export default function Orders() {
   const navigate = useNavigate();
 
-  // 1. Initialize state from sessionStorage or defaults
+  // 1. Initialize state - orderFilter defaults to "Pending" as requested
   const [searchTerm, setSearchTerm] = useState(sessionStorage.getItem("order_search") || "");
+  const [debouncedSearch, setDebouncedSearch] = useState(searchTerm);
   const [orderFilter, setOrderFilter] = useState(sessionStorage.getItem("order_status") || "Pending");
   const [paymentFilter, setPaymentFilter] = useState(sessionStorage.getItem("order_payment") || "All");
   const [timeFilter, setTimeFilter] = useState(sessionStorage.getItem("order_time") || "All Time");
@@ -26,7 +27,16 @@ export default function Orders() {
   const [showPaymentOptions, setShowPaymentOptions] = useState(false);
   const [showTimeOptions, setShowTimeOptions] = useState(false);
 
-  // 2. Persist filters to sessionStorage whenever they change
+  // 2. Search Debounce Logic (Queries DB only after user stops typing for 500ms)
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+      setPage(1); // Reset to first page of results on new search
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [searchTerm]);
+
+  // 3. Persist filters to sessionStorage
   useEffect(() => {
     sessionStorage.setItem("order_search", searchTerm);
     sessionStorage.setItem("order_status", orderFilter);
@@ -37,24 +47,18 @@ export default function Orders() {
 
   /**
    * Fetch Logic
-   * We use a "fetchUpToPage" approach: if a user was on page 3, 
-   * we fetch all 150 records so the scroll position/list remains the same.
+   * Sends search and filter parameters to the API to query the actual database.
    */
   const fetchOrders = useCallback(async (targetPage, isAppending = false) => {
     if (isAppending) setLoadingMore(true);
     else setLoading(true);
 
     try {
-      // If we are returning from a detail page and targetPage > 1, 
-      // we need to fetch all pages up to targetPage to restore the list
-      const limitToFetch = isAppending ? 50 : 50 * targetPage;
-      const pageToRequest = isAppending ? targetPage : 1;
-
       const { data } = await api.get("/orders/all-orders", {
         params: {
-          page: pageToRequest,
-          limit: limitToFetch,
-          search: searchTerm,
+          page: targetPage,
+          limit: 50,
+          search: debouncedSearch, // Database-wide search
           status: orderFilter,
           paymentStatus: paymentFilter,
           timeRange: timeFilter
@@ -63,7 +67,9 @@ export default function Orders() {
 
       const newOrders = data.orders || [];
       setOrders(prev => isAppending ? [...prev, ...newOrders] : newOrders);
-      setTotalResults(data.totalOrders || 0);
+      
+      // Update the "Total Found" count from the actual database response
+      setTotalResults(data.totalOrders || 0); 
       setHasMore(data.currentPage < data.totalPages);
     } catch (error) {
       console.error("Fetch error:", error);
@@ -71,14 +77,12 @@ export default function Orders() {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [searchTerm, orderFilter, paymentFilter, timeFilter]);
+  }, [debouncedSearch, orderFilter, paymentFilter, timeFilter]);
 
-  // Initial load and filter resets
+  // Trigger fetch when search or filters change
   useEffect(() => {
-    // If it's a fresh filter change, we reset to page 1
-    // Otherwise (on mount), we use the persisted page
     fetchOrders(page, false);
-  }, [searchTerm, orderFilter, paymentFilter, timeFilter]);
+  }, [debouncedSearch, orderFilter, paymentFilter, timeFilter, fetchOrders]);
 
   const handleViewMore = () => {
     const nextPage = page + 1;
@@ -88,7 +92,7 @@ export default function Orders() {
 
   const handleFilterChange = (setter, value) => {
     setter(value);
-    setPage(1); // Reset page on filter change
+    setPage(1); 
   };
 
   const getStatusColor = status => {
@@ -122,7 +126,8 @@ export default function Orders() {
             Clear Filters
           </button>
           <div className="bg-white border border-slate-200 px-5 py-2.5 rounded-2xl shadow-sm text-xs font-black text-slate-400 uppercase tracking-widest">
-            Found: <span className="text-emerald-600 ml-1">{totalResults} Orders</span>
+            {/* Total Results queried from the actual Database */}
+            Found: <span className="text-emerald-600 ml-1">{totalResults} Records</span>
           </div>
         </div>
       </div>
@@ -133,14 +138,13 @@ export default function Orders() {
           <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-emerald-600/50" size={20} />
           <input
             className="w-full pl-16 pr-8 py-5 bg-slate-50 border border-slate-100 rounded-[1.5rem] outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-sm font-semibold"
-            placeholder="Search..."
+            placeholder="Search database by Order ID, Name, or Email..."
             value={searchTerm}
-            onChange={e => handleFilterChange(setSearchTerm, e.target.value)}
+            onChange={e => setSearchTerm(e.target.value)}
           />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          {/* Time Filter */}
           <div className="relative">
             <button
               onClick={() => { setShowTimeOptions(!showTimeOptions); setShowOrderOptions(false); setShowPaymentOptions(false); }}
@@ -161,7 +165,6 @@ export default function Orders() {
             )}
           </div>
 
-          {/* Status Filter */}
           <div className="relative">
             <button
               onClick={() => { setShowOrderOptions(!showOrderOptions); setShowTimeOptions(false); setShowPaymentOptions(false); }}
@@ -182,7 +185,6 @@ export default function Orders() {
             )}
           </div>
 
-          {/* Payment Filter */}
           <div className="relative">
             <button
               onClick={() => { setShowPaymentOptions(!showPaymentOptions); setShowTimeOptions(false); setShowOrderOptions(false); }}
@@ -211,7 +213,6 @@ export default function Orders() {
         </div>
       ) : (
         <>
-          {/* Desktop Table */}
           <div className="hidden md:block bg-white rounded-[2rem] border border-slate-200 overflow-hidden shadow-sm">
             <table className="w-full text-sm">
               <thead className="bg-slate-50/80 text-slate-400 uppercase text-[10px] font-black tracking-widest border-b border-slate-100">
@@ -269,17 +270,14 @@ export default function Orders() {
             </table>
           </div>
 
-          {/* Mobile View */}
           <div className="md:hidden space-y-4">
             {orders.map(o => (
               <div key={o.id || o._id} className="bg-white p-5 rounded-[2rem] border border-slate-200 shadow-sm space-y-4">
-                {/* Top Row: ID and Date */}
                 <div className="flex justify-between items-start">
                   <div>
                     <p className="font-mono text-[10px] font-black text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-lg inline-block uppercase">
                       #{(o.id || o._id).toString().slice(-6).toUpperCase()}
                     </p>
-                    {/* USER NAME ADDED HERE */}
                     <div className="mt-3 flex items-center gap-3">
                       <div className="h-8 w-8 rounded-xl bg-slate-900 text-white flex items-center justify-center text-[10px] font-black uppercase flex-shrink-0">
                         {o.user?.name?.[0]}
@@ -299,7 +297,6 @@ export default function Orders() {
                   </p>
                 </div>
 
-                {/* Status Badges Row */}
                 <div className="flex flex-wrap gap-2 pt-1">
                   <div className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase border shadow-sm ${getStatusColor(o.status)}`}>
                     Order: {o.status}
@@ -309,7 +306,6 @@ export default function Orders() {
                   </div>
                 </div>
 
-                {/* Action Button & Total */}
                 <button
                   onClick={() => navigate(`/orders/${o.id || o._id}`)}
                   className="w-full flex justify-between items-center bg-slate-900 text-white px-6 py-4 rounded-[1.2rem] font-black text-xs uppercase tracking-widest shadow-lg shadow-slate-200 active:scale-[0.98] transition-all"
@@ -326,6 +322,19 @@ export default function Orders() {
               </div>
             ))}
           </div>
+
+          {/* View More Logic */}
+          {hasMore && (
+            <div className="mt-10 flex justify-center">
+               <button 
+                onClick={handleViewMore}
+                disabled={loadingMore}
+                className="px-10 py-4 bg-white border border-slate-200 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 hover:text-white transition-all disabled:opacity-50"
+               >
+                 {loadingMore ? <Loader2 className="animate-spin" /> : "Load More Database Results"}
+               </button>
+            </div>
+          )}
         </>
       )}
     </div>
