@@ -80,7 +80,7 @@ export default function ProductCard({ product }) {
         </div>
 
         {/* Product Name */}
-        <h3 className="font-bold text-slate-900 text-sm md:text-base leading-tight mb-1 group-hover:text-emerald-600 transition-colors line-clamp-1">
+        <h3 className="font-bold text-slate-900 text-sm md:text-base leading-tight mb-1 group-hover:text-emerald-600 transition-colors line-clamp-2">
           {product.name}
         </h3>
 

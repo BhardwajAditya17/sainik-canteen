@@ -15,7 +15,16 @@ const Checkout = () => {
   const { user } = useAuth();
   
   const items = Array.isArray(cart) ? cart : [];
-  const finalTotal = total || items.reduce((s, item) => s + Number(item.product?.price || 0) * item.quantity, 0);
+
+  // Helper to get the correct price based on discount
+  const getEffectivePrice = (product) => {
+    const price = Number(product?.price) || 0;
+    const discount = Number(product?.discountPrice) || 0;
+    return (discount > 0 && discount < price) ? discount : price;
+  };
+
+  // Recalculate finalTotal using discounted prices
+  const finalTotal = items.reduce((s, item) => s + getEffectivePrice(item.product) * item.quantity, 0);
 
   const [paymentMethod, setPaymentMethod] = useState('razorpay');
   const [loading, setLoading] = useState(false);
@@ -261,22 +270,25 @@ const Checkout = () => {
               <h2 className="text-lg font-bold text-gray-800 mb-4 pb-4 border-b">Order Summary</h2>
               
               <div className="space-y-4 mb-6 max-h-80 overflow-y-auto custom-scrollbar">
-                {items.map((item) => (
-                  <div key={item.id} className="flex gap-4">
-                    <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                       {item.product?.image && item.product.image.startsWith('http') ? (
-                          <img src={item.product.image} alt="" className="w-10 h-10 object-contain mix-blend-multiply" />
-                       ) : <Home size={16} className="text-gray-400" />}
+                {items.map((item) => {
+                  const itemSalePrice = getEffectivePrice(item.product);
+                  return (
+                    <div key={item.id} className="flex gap-4">
+                      <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                         {item.product?.image && item.product.image.startsWith('http') ? (
+                            <img src={item.product.image} alt="" className="w-10 h-10 object-contain mix-blend-multiply" />
+                         ) : <Home size={16} className="text-gray-400" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-800 truncate">{item.product?.name}</p>
+                        <p className="text-xs text-gray-500">Qty: {item.quantity}</p>
+                      </div>
+                      <p className="text-sm font-semibold text-gray-900">
+                        ₹{(itemSalePrice * item.quantity).toFixed(2)}
+                      </p>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-800 truncate">{item.product?.name}</p>
-                      <p className="text-xs text-gray-500">Qty: {item.quantity}</p>
-                    </div>
-                    <p className="text-sm font-semibold text-gray-900">
-                      ₹{(Number(item.product?.price || 0) * item.quantity).toFixed(2)}
-                    </p>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               <div className="space-y-2 border-t pt-4 text-sm text-gray-600">

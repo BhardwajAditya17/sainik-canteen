@@ -14,13 +14,21 @@ const Cart = () => {
 
   const items = Array.isArray(cart) ? cart : [];
   
-  const calculateItemTotal = (item) => {
-    const price = Number(item.product?.price) || 0;
-    const qty = Number(item.quantity) || 0;
-    return price * qty;
+  // Logic to get the correct price based on discount
+  const getEffectivePrice = (product) => {
+    const price = Number(product?.price) || 0;
+    const discount = Number(product?.discountPrice) || 0;
+    return (discount > 0 && discount < price) ? discount : price;
   };
 
-  const finalTotal = total || items.reduce((acc, item) => acc + calculateItemTotal(item), 0);
+  const calculateItemTotal = (item) => {
+    const effectivePrice = getEffectivePrice(item.product);
+    const qty = Number(item.quantity) || 0;
+    return effectivePrice * qty;
+  };
+
+  // Ensure total is recalculated based on discount prices
+  const finalTotal = items.reduce((acc, item) => acc + calculateItemTotal(item), 0);
 
   const handleProceed = () => {
     if (items.length === 0) return;
@@ -29,6 +37,14 @@ const Cart = () => {
 
   const handleQuantityChange = async (item, newQty) => {
     if (newQty < 1) return;
+    
+    // Debugging Stock Limit: Prevent increasing beyond product.stock
+    const availableStock = item.product?.stock || 0;
+    if (newQty > availableStock) {
+      alert(`Only ${availableStock} units available in stock.`);
+      return;
+    }
+
     const targetId = item.id || item._id || item.product?.id; 
     if (!targetId) return;
 
@@ -86,12 +102,15 @@ const Cart = () => {
 
         <div className="grid lg:grid-cols-3 gap-8">
           
-          {/* --- LEFT COLUMN: ITEMS --- */}
           <div className="lg:col-span-2 space-y-4">
             {items.map((it) => {
               const key = it.id || it.product?.id || Math.random();
               const isLoading = updatingId === (it.product?.id || it.id);
-              const itemPrice = Number(it.product?.price) || 0;
+              
+              // Pricing variables for the UI
+              const mrp = Number(it.product?.price) || 0;
+              const salePrice = getEffectivePrice(it.product);
+              const hasDiscount = salePrice < mrp;
 
               return (
                 <div key={key} className="relative bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6 flex flex-col sm:flex-row items-center gap-6 transition-transform hover:shadow-md">
@@ -117,33 +136,43 @@ const Cart = () => {
                   <div className="flex-1 text-center sm:text-left">
                     <h3 className="font-bold text-lg text-gray-800">{it.product?.name || "Unknown Product"}</h3>
                     <p className="text-sm text-gray-500 mb-2">{it.product?.category || "General"}</p>
-                    <p className="text-emerald-600 font-bold text-lg">₹{itemPrice.toLocaleString()}</p>
+                    
+                    {/* UI Price Block: Shows MRP struck out if discount exists */}
+                    <div className="flex items-center justify-center sm:justify-start gap-2">
+                      <p className="text-emerald-600 font-bold text-lg">₹{salePrice.toLocaleString()}</p>
+                      {hasDiscount && (
+                        <p className="text-gray-400 line-through text-sm">₹{mrp.toLocaleString()}</p>
+                      )}
+                    </div>
                   </div>
 
                   <div className="flex flex-col items-center sm:items-end gap-4">
                     
-                    <div className="flex items-center border border-gray-200 rounded-lg bg-gray-50">
-                      <button 
-                        type="button" 
-                        disabled={isLoading}
-                        onClick={() => handleQuantityChange(it, it.quantity - 1)}
-                        className="p-2 text-gray-600 hover:bg-gray-200 rounded-l-lg transition disabled:opacity-50"
-                      >
-                        <Minus size={16} />
-                      </button>
-                      
-                      <span className="w-10 text-center font-semibold text-gray-800">
-                        {it.quantity}
-                      </span>
-                      
-                      <button 
-                        type="button"
-                        disabled={isLoading}
-                        onClick={() => handleQuantityChange(it, it.quantity + 1)}
-                        className="p-2 text-gray-600 hover:bg-gray-200 rounded-r-lg transition disabled:opacity-50"
-                      >
-                        <Plus size={16} />
-                      </button>
+                    <div className="flex flex-col items-center gap-1">
+                      <div className="flex items-center border border-gray-200 rounded-lg bg-gray-50">
+                        <button 
+                          type="button" 
+                          disabled={isLoading}
+                          onClick={() => handleQuantityChange(it, it.quantity - 1)}
+                          className="p-2 text-gray-600 hover:bg-gray-200 rounded-l-lg transition disabled:opacity-50"
+                        >
+                          <Minus size={16} />
+                        </button>
+                        
+                        <span className="w-10 text-center font-semibold text-gray-800">
+                          {it.quantity}
+                        </span>
+                        
+                        <button 
+                          type="button"
+                          disabled={isLoading}
+                          onClick={() => handleQuantityChange(it, it.quantity + 1)}
+                          className="p-2 text-gray-600 hover:bg-gray-200 rounded-r-lg transition disabled:opacity-50"
+                        >
+                          <Plus size={16} />
+                        </button>
+                      </div>
+                      <span className="text-[10px] text-gray-400">Stock: {it.product?.stock}</span>
                     </div>
 
                     <button 
@@ -173,7 +202,6 @@ const Cart = () => {
             </div>
           </div>
 
-          {/* --- RIGHT COLUMN: SUMMARY --- */}
           <div className="lg:col-span-1">
             <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-6 sticky top-24">
               <h3 className="font-bold text-xl text-gray-800 mb-6 pb-4 border-b">Order Summary</h3>
