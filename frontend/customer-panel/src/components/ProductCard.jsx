@@ -1,6 +1,6 @@
 import React, { useContext, useState } from "react";
 import { Link } from "react-router-dom";
-import { ShoppingCart, Package, Tag, Percent } from "lucide-react";
+import { ShoppingCart, Package, Percent } from "lucide-react";
 import { CartContext } from "../context/CartContext";
 
 export default function ProductCard({ product }) {
@@ -60,8 +60,8 @@ export default function ProductCard({ product }) {
               Sold Out
             </span>
           ) : hasDiscount ? (
-            <span className="bg-rose-500 text-white text-[9px] md:text-[10px] font-bold px-2 py-1 rounded-md shadow-sm flex items-center gap-1">
-              <Percent size={10} /> {discountPercentage}% OFF
+            <span className="bg-rose-500 text-white text-[9px] md:text-[10px] font-bold px-2 py-1 rounded-md shadow-sm flex items-center gap-0.5">
+               {discountPercentage}<Percent size={10} strokeWidth={3} /> OFF
             </span>
           ) : null}
         </div>
@@ -79,10 +79,17 @@ export default function ProductCard({ product }) {
           </span>
         </div>
 
-        {/* Product Name - Fully Visible */}
-        <h3 className="font-bold text-slate-900 text-sm md:text-base lg:text-lg leading-tight mb-3 group-hover:text-emerald-600 transition-colors break-words">
+        {/* Product Name */}
+        <h3 className="font-bold text-slate-900 text-sm md:text-base leading-tight mb-1 group-hover:text-emerald-600 transition-colors line-clamp-1">
           {product.name}
         </h3>
+
+        {/* NEW: Description Section */}
+        {product.description && (
+          <p className="text-slate-500 text-[10px] md:text-xs leading-relaxed mb-3 line-clamp-2 italic">
+            {product.description}
+          </p>
+        )}
 
         {/* Price & Action Container */}
         <div className="mt-auto pt-3 border-t border-slate-50 flex items-center justify-between gap-2">

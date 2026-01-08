@@ -13,17 +13,20 @@ export async function listProducts(req, res, next) {
     const page = Math.max(parseInt(req.query.page || '1'), 1);
     const search = req.query.search || '';
     const category = req.query.category || undefined;
-    const isFeatured = req.query.isFeatured; 
+    const isFeatured = req.query.isFeatured; // <--- Catch the query param
     const skip = (page - 1) * limit;
 
     const where = {
-      isActive: true, 
+      isActive: true, // Customers should only see active products
     };
 
+    // 1. FEATURED FILTER (The fix for your Home page)
     if (isFeatured !== undefined) {
+      // Converts string "true" from URL into actual boolean true
       where.isFeatured = isFeatured === 'true';
     }
 
+    // 2. Multi-field Search (Name, Brand, Description + ID)
     if (search) {
       where.OR = [
         { name: { contains: search, mode: 'insensitive' } },
@@ -32,12 +35,14 @@ export async function listProducts(req, res, next) {
         { sku: { contains: search, mode: 'insensitive' } },
       ];
 
+      // 💡 If the search term is a number, allow searching by ID
       const searchId = parseInt(search);
       if (!isNaN(searchId)) {
         where.OR.push({ id: searchId });
       }
     }
 
+    // 3. Category Filter
     if (category && category !== 'All') {
       where.category = category;
     }
@@ -92,14 +97,14 @@ export async function getProduct(req, res, next) {
 export const createProduct = async (req, res) => {
   try {
     const imagePath = req.file ? req.file.path : '📦'; 
+    // Add isFeatured to destructuring
     const { name, category, price, discountPrice, stock, description, brand, sku, isFeatured } = req.body;
 
     const product = await prisma.product.create({
       data: {
         name,
         brand: brand || "Generic",
-        // Logic changed here: If sku is empty or only whitespace, save as null
-        sku: (sku && sku.trim() !== "") ? sku : null,
+        sku: sku || `SKU-${Date.now()}`,
         slug: slugify(name) + '-' + Date.now(),
         category,
         description,
@@ -108,6 +113,7 @@ export const createProduct = async (req, res) => {
         stock: parseInt(stock),
         image: imagePath,
         isActive: true,
+        // Ensure boolean conversion if coming as string from FormData
         isFeatured: isFeatured === 'true' || isFeatured === true 
       }
     });
@@ -157,11 +163,13 @@ export const updateProduct = async (req, res) => {
 
 /**
  * DELETE /products/:id (Admin Only)
+ * Implementation: Soft Delete
  */
 export async function deleteProduct(req, res, next) {
   try {
     const id = Number(req.params.id);
 
+    // Hard Delete: Actually removes the row from the database
     await prisma.product.delete({
       where: { id }
     });
