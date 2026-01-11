@@ -43,7 +43,7 @@ export default function Navbar() {
             </div>
             <div className="leading-tight">
               <span className="block font-bold text-white tracking-tight">
-                Sainik Canteen
+                Sainik Canteen Baghpat
               </span>
               <span className="block text-[10px] font-medium text-emerald-300  tracking-widest mt-1">
                 Powered by Pratul & Vaidik Enterprises

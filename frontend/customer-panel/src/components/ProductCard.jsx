@@ -79,7 +79,7 @@ export default function ProductCard({ product }) {
                Limit Reached
             </span>
           ) : hasDiscount ? (
-            <span className="bg-rose-500 text-white text-[9px] md:text-[10px] font-bold px-2 py-1 rounded-md shadow-sm flex items-center gap-0.5">
+            <span className="bg-rose-500 text-white text-[11px] md:text-[13px] font-bold px-2 py-1 rounded-md shadow-sm flex items-center gap-0.5">
                {discountPercentage}<Percent size={10} strokeWidth={3} /> OFF
             </span>
           ) : null}

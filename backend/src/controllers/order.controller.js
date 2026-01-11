@@ -82,7 +82,14 @@ export async function createOrder(req, res, next) {
       return res.status(400).json({ message: "Cart is empty" });
     }
 
-    const totalAmount = cartItems.reduce((acc, item) => acc + (item.product.price * item.quantity), 0);
+    // ✅ FIXED: Calculate total using discountPrice if available
+    const totalAmount = cartItems.reduce((acc, item) => {
+      const activePrice = (item.product.discountPrice && item.product.discountPrice > 0) 
+        ? item.product.discountPrice 
+        : item.product.price;
+      return acc + (activePrice * item.quantity);
+    }, 0);
+
     const method = paymentMethod ? paymentMethod.toLowerCase() : "cod";
     const isCOD = method === "cod";
 
@@ -110,11 +117,18 @@ export async function createOrder(req, res, next) {
           razorpaySignature: isCOD ? null : razorpaySignature,
           name, phone, address, city, state, pincode,
           orderItems: {
-            create: cartItems.map(item => ({
-              productId: item.productId,
-              quantity: item.quantity,
-              price: item.product.price
-            }))
+            create: cartItems.map(item => {
+              // ✅ FIXED: Save the actual price paid (discounted or original) in order history
+              const pricePaid = (item.product.discountPrice && item.product.discountPrice > 0) 
+                ? item.product.discountPrice 
+                : item.product.price;
+                
+              return {
+                productId: item.productId,
+                quantity: item.quantity,
+                price: pricePaid
+              };
+            })
           }
         },
         include: { orderItems: true }
@@ -211,21 +225,21 @@ export const getAllOrders = async (req, res) => {
     }
 
     if (timeRange && timeRange !== "All Time") {
-  const now = new Date();
-  const startDate = new Date();
-  startDate.setHours(0, 0, 0, 0); // 🔥 CRITICAL: Match the Analytics logic
+      const now = new Date();
+      const startDate = new Date();
+      startDate.setHours(0, 0, 0, 0);
 
-  if (timeRange === "Day") {
-    // Already set to midnight today
-  } else if (timeRange === "Week") {
-    startDate.setDate(now.getDate() - 7);
-  } else if (timeRange === "Month") {
-    startDate.setDate(now.getDate() - 30); // Use 30 days for consistency with '30d'
-  } else if (timeRange === "Year") {
-    startDate.setFullYear(now.getFullYear() - 1);
-  }
-  where.createdAt = { gte: startDate };
-}
+      if (timeRange === "Day") {
+        // Midnight today
+      } else if (timeRange === "Week") {
+        startDate.setDate(now.getDate() - 7);
+      } else if (timeRange === "Month") {
+        startDate.setDate(now.getDate() - 30);
+      } else if (timeRange === "Year") {
+        startDate.setFullYear(now.getFullYear() - 1);
+      }
+      where.createdAt = { gte: startDate };
+    }
 
     const [totalOrders, orders] = await Promise.all([
       prisma.order.count({ where }),
@@ -279,16 +293,15 @@ export const updateOrderStatus = async (req, res) => {
 };
 
 /***************************************
- * ADMIN: Get Analytics (FIXED DATE LOGIC)
+ * ADMIN: Get Analytics
  ***************************************/
 export const getAdminAnalytics = async (req, res) => {
   try {
-    const { range = '7d', interval = 'day' } = req.query;
+    const { range = '7d' } = req.query;
     
-    // 1. Setup Fresh Dates
     const now = new Date();
     const startDate = new Date();
-    startDate.setHours(0, 0, 0, 0); // Start from the very beginning of the day
+    startDate.setHours(0, 0, 0, 0);
 
     if (range === '7d') {
       startDate.setDate(now.getDate() - 7);
@@ -297,10 +310,9 @@ export const getAdminAnalytics = async (req, res) => {
     } else if (range === '90d') {
       startDate.setDate(now.getDate() - 90);
     } else {
-      startDate.setFullYear(2000); // All Time
+      startDate.setFullYear(2000); 
     }
 
-    // 2. Fetch Orders (Filter for Paid/Success only)
     const orders = await prisma.order.findMany({
       where: {
         createdAt: { gte: startDate },
@@ -316,37 +328,29 @@ export const getAdminAnalytics = async (req, res) => {
 
     const totalUsers = await prisma.user.count();
 
-    // 3. Initialize Accumulators
     let totalRevenue = 0;
     const chartDataMap = {};
     const categoryMap = {};
     const productMap = {};
 
-    // 4. Single Pass Processing
     orders.forEach(order => {
-      // Convert Decimal to Number for math
       const orderAmount = Number(order.totalAmount) || 0;
       totalRevenue += orderAmount;
 
-      // Trend Logic
       const dateKey = order.createdAt.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' });
       chartDataMap[dateKey] = (chartDataMap[dateKey] || 0) + orderAmount;
 
-      // Item Level Logic
       order.orderItems.forEach(item => {
         const itemRevenue = Number(item.price) * item.quantity;
         
-        // Category distribution
         const cat = item.product?.category || "Uncategorized";
         categoryMap[cat] = (categoryMap[cat] || 0) + itemRevenue;
 
-        // Top Products
         const pName = item.product?.name || "Unknown Product";
         productMap[pName] = (productMap[pName] || 0) + itemRevenue;
       });
     });
 
-    // 5. Format Data for Recharts
     const chartData = Object.keys(chartDataMap).map(name => ({
       name,
       sales: chartDataMap[name]
@@ -357,11 +361,10 @@ export const getAdminAnalytics = async (req, res) => {
       value: categoryMap[name]
     }));
 
-    // Sorting: We sort ASCENDING here so Recharts Vertical Bar displays highest at the top
     const topProducts = Object.keys(productMap)
       .map(name => ({ name, sales: productMap[name] }))
       .sort((a, b) => a.sales - b.sales) 
-      .slice(-10); // Take the top 10
+      .slice(-10);
 
     res.json({
       success: true,
