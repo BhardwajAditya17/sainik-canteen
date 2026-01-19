@@ -274,21 +274,65 @@ export const updateOrderStatus = async (req, res) => {
   try {
     const { id } = req.params;
     const { status, paymentStatus } = req.body;
-    const updateData = {};
-    if (status) updateData.status = status;
-    if (paymentStatus) updateData.paymentStatus = paymentStatus;
+    const orderId = parseInt(id);
 
-    const order = await prisma.order.update({
-      where: { id: parseInt(id) },
-      data: updateData,
-      include: { 
-        user: { select: { name: true, email: true } },
-        orderItems: { include: { product: true } }
+    const updatedOrder = await prisma.$transaction(async (tx) => {
+      // 1. Fetch current order to check previous state
+      const currentOrder = await tx.order.findUnique({
+        where: { id: orderId },
+        include: { orderItems: true }
+      });
+
+      if (!currentOrder) throw new Error("Order not found");
+
+      const oldStatus = currentOrder.status;
+
+      // 2. Logic A: Moving TO Cancelled (Restore Stock)
+      if (status === 'Cancelled' && oldStatus !== 'Cancelled') {
+        for (const item of currentOrder.orderItems) {
+          await tx.product.update({
+            where: { id: item.productId },
+            data: { stock: { increment: item.quantity } }
+          });
+        }
       }
+
+      // 3. Logic B: Moving FROM Cancelled back to active (Deduct Stock)
+      else if (status && status !== 'Cancelled' && oldStatus === 'Cancelled') {
+        for (const item of currentOrder.orderItems) {
+          // Verify stock availability before allowing the move back
+          const product = await tx.product.findUnique({ where: { id: item.productId } });
+          if (product.stock < item.quantity) {
+            throw new Error(`Insufficient stock to reactivate order for product: ${product.name}`);
+          }
+
+          await tx.product.update({
+            where: { id: item.productId },
+            data: { stock: { decrement: item.quantity } }
+          });
+        }
+      }
+
+      // 4. Perform the status update
+      const updateData = {};
+      if (status) updateData.status = status;
+      if (paymentStatus) updateData.paymentStatus = paymentStatus;
+
+      return await tx.order.update({
+        where: { id: orderId },
+        data: updateData,
+        include: { 
+          user: { select: { name: true, email: true } },
+          orderItems: { include: { product: true } }
+        }
+      });
     });
-    res.json(order);
+
+    res.json(updatedOrder);
   } catch (error) {
-    res.status(500).json({ message: "Update failed" });
+    console.error("Update Order Error:", error);
+    // Return the specific error message (like "Insufficient stock") to the UI
+    res.status(400).json({ message: error.message || "Update failed" });
   }
 };
 
